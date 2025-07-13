@@ -38,9 +38,25 @@ class VideoViewModel : ViewModel() {
     private val _showControls = MutableStateFlow(true)
     val showControls = _showControls.asStateFlow()
 
+
     fun setVideoUrl(url: String) {
+        if (_videoUrl.value == url) return // ✅ Evita recargar lo mismo
+
         _videoUrl.value = url
+
+        try {
+            mediaPlayer.stop() // Detiene lo que esté corriendo
+            val media = Media(mediaPlayer.libVLC, Uri.parse(url))
+            media.setHWDecoderEnabled(true, false)
+            mediaPlayer.media = media
+            media.release()
+            mediaPlayer.play()
+        } catch (e: Exception) {
+            println("❌ Error cargando media: ${e.message}")
+        }
     }
+
+
 
     fun toggleControls(visible: Boolean = true) {
         _showControls.value = visible
@@ -105,7 +121,9 @@ class VideoViewModel : ViewModel() {
 
                         mediaPlayer.play()
                         delay(300)
-                        mediaPlayer.setPosition(position)
+                        if(position >= 0.toFloat()){
+                            mediaPlayer.setPosition(position)
+                        }
 
                         println("✅ Recuperado desde posición: $position (${current / 1000}s)")
                     }
@@ -149,4 +167,38 @@ class VideoViewModel : ViewModel() {
         mediaPlayer.setPosition(seekFraction)
         seeking = false
     }
+
+
+
+
+
+
+    private var lastBackPressTime = 0L
+    private val _showExitPrompt = MutableStateFlow(false)
+    val showExitPrompt: StateFlow<Boolean> = _showExitPrompt.asStateFlow()
+
+    private val _shouldExitApp = MutableStateFlow(false)
+    val shouldExitApp: StateFlow<Boolean> = _shouldExitApp.asStateFlow()
+
+    fun requestExit() {
+        val now = System.currentTimeMillis()
+        if (now - lastBackPressTime < 2000) {
+            _shouldExitApp.value = true
+        } else {
+            _showExitPrompt.value = true
+            lastBackPressTime = now
+            viewModelScope.launch {
+                delay(2000)
+                _showExitPrompt.value = false
+            }
+        }
+    }
+
+    fun startUserInteractionTimeout() {
+        viewModelScope.launch {
+            delay(10_000)
+            _isUserInteracting.value = false
+        }
+    }
+
 }

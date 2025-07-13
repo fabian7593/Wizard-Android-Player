@@ -9,10 +9,10 @@ import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
@@ -34,6 +33,7 @@ import com.example.vlc.ui.theme.VLCTheme
 import com.example.vlc.viewmodel.VideoViewModel
 import com.example.vlc.widgets.CustomVideoSlider
 import com.example.vlc.widgets.ScrollableDialogList
+import com.example.vlc.widgets.TvIconButton
 import kotlinx.coroutines.delay
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.MediaPlayer
@@ -68,6 +68,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             VLCTheme(darkTheme = true) {
+
+                val playFocusRequester = remember { FocusRequester() }
+                val sliderFocusRequester = remember { FocusRequester() }
+
                 val viewModel = remember { VideoViewModel() }
                 viewModel.mediaPlayer = mediaPlayer
 
@@ -77,6 +81,8 @@ class MainActivity : ComponentActivity() {
                 val videoLength by viewModel.videoLength.collectAsState()
                 val showControls by viewModel.showControls.collectAsState()
                 val videoUrl by viewModel.videoUrl.collectAsState()
+                val shouldExitApp by viewModel.shouldExitApp.collectAsState()
+                val showExitPrompt by viewModel.showExitPrompt.collectAsState()
 
                 val showAudioDialog = remember { mutableStateOf(false) }
                 var showSubtitlesDialog by remember { mutableStateOf(false) }
@@ -85,18 +91,21 @@ class MainActivity : ComponentActivity() {
                 val audioTracks = remember { mutableStateListOf<Pair<Int, String>>() }
                 val subtitleTracks = remember { mutableStateListOf<Pair<Int, String>>() }
 
-                val focusColor = Color(0xFF1976D2)
-
                 val isPlayFocused = remember { mutableStateOf(false) }
                 val isSubFocused = remember { mutableStateOf(false) }
                 val isAudioFocused = remember { mutableStateOf(false) }
                 val isAspectFocused = remember { mutableStateOf(false) }
 
-                val playButtonFocusRequester = remember { FocusRequester() }
+                var movieNumber by remember { mutableStateOf("") }
 
                 LaunchedEffect(Unit) {
                     delay(600)
-                    playButtonFocusRequester.requestFocus()
+                    playFocusRequester.requestFocus()
+                    //viewModel.setVideoUrl("")
+                }
+
+                LaunchedEffect(shouldExitApp) {
+                    if (shouldExitApp) finish()
                 }
 
                 Box(
@@ -106,35 +115,54 @@ class MainActivity : ComponentActivity() {
                             detectTapGestures {
                                 viewModel.toggleControls(true)
                                 viewModel.setUserInteracting(true)
+                                viewModel.startUserInteractionTimeout()
                             }
                         }
                         .onKeyEvent { keyEvent ->
                             if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                                viewModel.toggleControls(true)
-                                viewModel.setUserInteracting(true)
-                            }
-                            false
+                                when (keyEvent.nativeKeyEvent.keyCode) {
+                                    KeyEvent.KEYCODE_BACK -> {
+                                        if (viewModel.showControls.value) {
+                                            viewModel.toggleControls(false)
+                                        } else {
+                                            viewModel.requestExit()
+                                        }
+                                        true
+                                    }
+                                    else -> {
+                                        viewModel.toggleControls(true)
+                                        viewModel.setUserInteracting(true)
+                                        viewModel.startUserInteractionTimeout()
+                                        false
+                                    }
+                                }
+                            } else false
                         }
                         .focusable()
                 ) {
-                    viewModel.setVideoUrl("http://movie.mkv")
-
-                    if (videoUrl.isNotEmpty()) {
-                        VLCPlayerView(
-                            modifier = Modifier.fillMaxSize(),
-                            mediaPlayer = mediaPlayer,
-                            videoUrl = videoUrl,
-                            onTracksLoaded = {
-                                audioTracks.clear(); audioTracks.addAll(it)
-                            },
-                            onSubtitleLoaded = {
-                                subtitleTracks.clear(); subtitleTracks.addAll(it)
-                            },
-                            onPlaybackStateChanged = { viewModel.onPlaybackChanged(it) },
-                            onBufferingChanged = { viewModel.onBufferingChanged(it) },
-                            onDurationChanged = { viewModel.onDurationChanged(it) }
-                        )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black)
+                    ) {
+                        if (videoUrl.isNotEmpty()) {
+                            VLCPlayerView(
+                                modifier = Modifier.fillMaxSize(),
+                                mediaPlayer = mediaPlayer,
+                                videoUrl = videoUrl,
+                                onTracksLoaded = {
+                                    audioTracks.clear(); audioTracks.addAll(it)
+                                },
+                                onSubtitleLoaded = {
+                                    subtitleTracks.clear(); subtitleTracks.addAll(it)
+                                },
+                                onPlaybackStateChanged = { viewModel.onPlaybackChanged(it) },
+                                onBufferingChanged = { viewModel.onBufferingChanged(it) },
+                                onDurationChanged = { viewModel.onDurationChanged(it) }
+                            )
+                        }
                     }
+
 
                     if (isBuffering) {
                         CircularProgressIndicator(
@@ -159,18 +187,47 @@ class MainActivity : ComponentActivity() {
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                IconButton(
-                                    onClick = { finish() },
-                                    modifier = Modifier.size(40.dp).focusable()
-                                ) {
-                                    Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
-                                }
-
                                 Column(modifier = Modifier.padding(start = 8.dp)) {
                                     Text("Película Destacada", color = Color.White)
                                     Text("Subtítulo interesante", color = Color.LightGray)
                                 }
                             }
+
+
+
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.End)
+                                    .padding(top = 12.dp, end = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedTextField(
+                                    value = movieNumber,
+                                    onValueChange = {
+                                        if (it.all { ch -> ch.isDigit() }) {
+                                            movieNumber = it
+                                        }
+                                    },
+                                    label = { Text("ID") },
+                                    singleLine = true,
+                                    modifier = Modifier.width(80.dp)
+                                )
+
+                                Button(
+                                    onClick = {
+                                        if (movieNumber.isNotEmpty()) {
+                                            val newUrl = "http://161.97.128.152:80/movie/test777/test777/${movieNumber}.mkv"
+                                            viewModel.setVideoUrl(newUrl)
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    modifier = Modifier.height(48.dp)
+                                ) {
+                                    Text("Cargar")
+                                }
+                            }
+
 
                             Spacer(modifier = Modifier.weight(1f))
 
@@ -194,7 +251,8 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onSeekFinished = {
                                         viewModel.onSeekFinished()
-                                    }
+                                    },
+                                    modifier = Modifier.focusRequester(sliderFocusRequester)
                                 )
                             }
 
@@ -205,77 +263,47 @@ class MainActivity : ComponentActivity() {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                IconButton(
+                                TvIconButton(
                                     onClick = {
                                         if (isPlaying) mediaPlayer.pause() else mediaPlayer.play()
                                         viewModel.setIsPlaying(!isPlaying)
                                         viewModel.toggleControls(true)
                                     },
-                                    modifier = Modifier
-                                        .focusRequester(playButtonFocusRequester)
-                                        .focusable()
-                                        .onFocusChanged { focusState ->
-                                            isPlayFocused.value = focusState.isFocused
-                                            viewModel.setUserInteracting(focusState.isFocused)
-                                        }
-                                ) {
-                                    Icon(
-                                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = "Play/Pause",
-                                        tint = if (isPlayFocused.value) focusColor else Color.White
-                                    )
-                                }
+                                    focusRequester = playFocusRequester,
+                                    isFocused = isPlayFocused,
+                                    icon = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    description = "Play/Pause",
+                                    tint = Color.White
+                                )
 
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    IconButton(
+                                    TvIconButton(
                                         onClick = { showSubtitlesDialog = true },
-                                        modifier = Modifier
-                                            .focusable()
-                                            .onFocusChanged {
-                                                isSubFocused.value = it.isFocused
-                                                viewModel.setUserInteracting(it.isFocused)
-                                            }
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Subtitles,
-                                            contentDescription = "Subtítulos",
-                                            tint = if (isSubFocused.value) focusColor else Color.White
-                                        )
-                                    }
+                                        isFocused = isSubFocused,
+                                        icon = Icons.Default.Subtitles,
+                                        description = "Subtítulos",
+                                        tint = Color.White
+                                    )
 
-                                    IconButton(
+                                    TvIconButton(
                                         onClick = { showAudioDialog.value = true },
-                                        modifier = Modifier
-                                            .focusable()
-                                            .onFocusChanged {
-                                                isAudioFocused.value = it.isFocused
-                                                viewModel.setUserInteracting(it.isFocused)
-                                            }
-                                    ) {
-                                        Icon(
-                                            Icons.Default.VolumeUp,
-                                            contentDescription = "Idioma",
-                                            tint = if (isAudioFocused.value) focusColor else Color.White
-                                        )
-                                    }
+                                        isFocused = isAudioFocused,
+                                        icon = Icons.Default.VolumeUp,
+                                        description = "Idioma",
+                                        tint = Color.White
+                                    )
 
-                                    IconButton(
+                                    TvIconButton(
                                         onClick = { showAspectRatioDialog = true },
-                                        modifier = Modifier
-                                            .focusable()
-                                            .onFocusChanged {
-                                                isAspectFocused.value = it.isFocused
-                                                viewModel.setUserInteracting(it.isFocused)
-                                            }
-                                    ) {
-                                        Icon(
-                                            Icons.Default.AspectRatio,
-                                            contentDescription = "Aspect Ratio",
-                                            tint = if (isAspectFocused.value) focusColor else Color.White
-                                        )
-                                    }
+                                        isFocused = isAspectFocused,
+                                        icon = Icons.Default.AspectRatio,
+                                        description = "Aspect Ratio",
+                                        tint = Color.White
+                                    )
                                 }
                             }
+
+
                         }
                     }
 
@@ -301,14 +329,10 @@ class MainActivity : ComponentActivity() {
                         ScrollableDialogList(
                             title = "Aspect Ratio",
                             items = listOf(
-                                0 to "Auto Fit",
-                                5 to "Fill",
-                                8 to "Cinematic",
-                                1 to "16:9",
-                                2 to "4:3"
+                                0 to "Auto Fit", 5 to "Fill", 8 to "Cinematic", 1 to "16:9", 2 to "4:3"
                             ),
-                            onItemSelected = { selected ->
-                                when (selected) {
+                            onItemSelected = {
+                                when (it) {
                                     0 -> mediaPlayer.setAspectRatio("").also { mediaPlayer.setScale(0f) }
                                     1 -> mediaPlayer.setAspectRatio("16:9").also { mediaPlayer.setScale(0f) }
                                     2 -> mediaPlayer.setAspectRatio("4:3").also { mediaPlayer.setScale(0f) }
@@ -321,6 +345,22 @@ class MainActivity : ComponentActivity() {
                             },
                             onDismiss = { showAspectRatioDialog = false }
                         )
+                    }
+
+                    if (showExitPrompt) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 32.dp)
+                        ) {
+                            Surface(color = Color.Black.copy(alpha = 0.8f), shape = MaterialTheme.shapes.medium) {
+                                Text(
+                                    text = "Presiona nuevamente para salir",
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
