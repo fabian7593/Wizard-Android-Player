@@ -98,14 +98,17 @@ class MainActivity : ComponentActivity() {
 
                 var movieNumber by remember { mutableStateOf("") }
 
-                LaunchedEffect(Unit) {
-                    delay(600)
-                    playFocusRequester.requestFocus()
-                    //viewModel.setVideoUrl("")
-                }
+
 
                 LaunchedEffect(shouldExitApp) {
                     if (shouldExitApp) finish()
+                }
+
+                LaunchedEffect(showControls) {
+                    if (showControls) {
+                        delay(200) // ⏳ Espera un toque para asegurar que los controles estén visibles
+                        playFocusRequester.requestFocus() // 🎯 Enfoca el botón de reproducción
+                    }
                 }
 
                 Box(

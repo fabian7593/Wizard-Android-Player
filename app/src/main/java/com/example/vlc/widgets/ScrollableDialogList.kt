@@ -23,6 +23,7 @@ import androidx.compose.ui.input.key.*
  * @param title The title text of the dialog
  * @param items List of item pairs (ID, Display Text)
  * @param onItemSelected Callback triggered when an item is selected
+
  * @param onDismiss Callback triggered when the dialog is dismissed
  */
 @Composable
@@ -61,7 +62,7 @@ fun ScrollableDialogList(
                                     onDismiss()
                                 } // 👉 Now touch works too!
                                 .focusRequester(itemFocusRequester)
-                                .focusable()
+                                //.focusable()
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                                 .onKeyEvent { keyEvent ->
                                     if (keyEvent.type == KeyEventType.KeyUp && keyEvent.key == Key.Enter) {

@@ -34,7 +34,8 @@ fun CustomVideoSlider(
     val trackHeight = 4.dp
     val thumbRadius = 10.dp
     val thumbColor = if (isFocused.value || isDragging) focusColor else Color.Cyan
-    val activeColor = Color.White
+    val activeColor = Color(0xFF1976D2)
+
     val inactiveColor = Color.Gray
     val density = LocalDensity.current
 

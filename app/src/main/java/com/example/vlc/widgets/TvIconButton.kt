@@ -59,7 +59,7 @@ fun TvIconButton(
         Icon(
             imageVector = icon,
             contentDescription = description,
-            tint = if (isFocused.value) Color.Cyan else tint
+            tint = if (isFocused.value) Color(0xFF1976D2) else tint
         )
     }
 }
