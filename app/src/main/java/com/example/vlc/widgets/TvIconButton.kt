@@ -72,7 +72,11 @@ fun TvIconButton(
                 } else false
             }
             .background(
-                color = if (isTV && isFocused.value) Color.White else Color.Transparent,
+                color = when {
+                    isTV && isFocused.value && !enabled -> Color.Gray.copy(alpha = 0.3f)
+                    isTV && isFocused.value -> Color.White
+                    else -> Color.Transparent
+                },
                 shape = CircleShape
             )
             .focusable()
