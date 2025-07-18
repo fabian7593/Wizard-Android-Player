@@ -12,29 +12,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.key.*
 
-/**
- * A composable dialog that displays a scrollable list of selectable items,
- * optimized for Android TV, tablets, and phones using LazyColumn and focus navigation.
- *
- * @param title The title text of the dialog
- * @param items List of item pairs (ID, Display Text)
- * @param onItemSelected Callback triggered when an item is selected
-
- * @param onDismiss Callback triggered when the dialog is dismissed
- */
 @Composable
 fun ScrollableDialogList(
     title: String,
     items: List<Pair<Int, String>>,
     onItemSelected: (Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onUserInteracted: (() -> Unit)? = null
 ) {
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
-    val maxDialogHeight = screenHeight * 0.6f // 60% of screen height
+    val maxDialogHeight = screenHeight * 0.6f
 
     val firstItemFocusRequester = FocusRequester()
 
@@ -43,8 +34,7 @@ fun ScrollableDialogList(
         title = { Text(text = title) },
         text = {
             Box(
-                modifier = Modifier
-                    .heightIn(max = maxDialogHeight)
+                modifier = Modifier.heightIn(max = maxDialogHeight)
             ) {
                 LazyColumn(
                     modifier = Modifier
@@ -52,30 +42,37 @@ fun ScrollableDialogList(
                         .padding(vertical = 4.dp)
                 ) {
                     itemsIndexed(items) { index, (id, name) ->
-                        val itemFocusRequester = if (index == 0) firstItemFocusRequester else FocusRequester()
+
+                        val itemFocusRequester =
+                            if (index == 0) firstItemFocusRequester else FocusRequester()
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
+                                    onUserInteracted?.invoke()
                                     onItemSelected(id)
                                     onDismiss()
-                                } // 👉 Now touch works too!
+                                }
                                 .focusRequester(itemFocusRequester)
-                                //.focusable()
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                                 .onKeyEvent { keyEvent ->
-                                    if (keyEvent.type == KeyEventType.KeyUp && keyEvent.key == Key.Enter) {
+                                    if (keyEvent.type == KeyEventType.KeyUp &&
+                                        keyEvent.key == Key.Enter
+                                    ) {
+                                        onUserInteracted?.invoke()
                                         onItemSelected(id)
                                         onDismiss()
                                         true
-                                    } else false
+                                    } else {
+                                        onUserInteracted?.invoke()
+                                        false
+                                    }
                                 }
                         ) {
                             Text(text = name)
                         }
 
-                        // Focus the first item automatically
                         if (index == 0) {
                             LaunchedEffect(Unit) {
                                 firstItemFocusRequester.requestFocus()

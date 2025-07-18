@@ -32,19 +32,26 @@ fun TvIconButton(
     isFocused: MutableState<Boolean>,
     icon: ImageVector,
     description: String,
-    tint: Color
+    tint: Color,
+    onUserInteracted: (() -> Unit)? = null,
+    enabled: Boolean = true
 ) {
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val isTV = remember { context.isTelevision() }
 
-    val iconSize = 48.dp // Tamaño fijo del botón (no cambia con focus)
+    val iconSize = 48.dp
 
     Box(
         modifier = modifier
-            .size(iconSize) // Tamaño fijo evita "movimiento"
+            .size(iconSize)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-            .onFocusChanged { isFocused.value = it.isFocused }
+            .onFocusChanged {
+                isFocused.value = it.isFocused
+                if (it.isFocused) {
+                    onUserInteracted?.invoke()
+                }
+            }
             .onKeyEvent { keyEvent ->
                 if (keyEvent.type == KeyEventType.KeyDown) {
                     when (keyEvent.key) {
@@ -69,14 +76,22 @@ fun TvIconButton(
                 shape = CircleShape
             )
             .focusable()
-            .clickable { onClick() },
+            .clickable(
+                enabled = enabled,
+                onClick = {
+                    onUserInteracted?.invoke()
+                    onClick()
+                }
+            ),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = description,
-            tint = if (isFocused.value && isTV) primeColor else tint,
-            modifier = Modifier.size(24.dp) // Ícono centrado, no cambia
+            tint = if (!enabled) tint.copy(alpha = 0.4f)
+            else if (isFocused.value && isTV) primeColor
+            else tint,
+            modifier = Modifier.size(24.dp)
         )
     }
 }

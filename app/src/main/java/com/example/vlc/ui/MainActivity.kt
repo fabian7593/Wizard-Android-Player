@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -100,7 +101,17 @@ class MainActivity : ComponentActivity() {
 
                 var movieNumber by remember { mutableStateOf("") }
 
+                val backCallback = rememberUpdatedState {
+                    if (viewModel.showControls.value) {
+                        viewModel.toggleControls(false)
+                    } else {
+                        viewModel.requestExit()
+                    }
+                }
 
+                BackHandler {
+                    backCallback.value()
+                }
 
                 LaunchedEffect(shouldExitApp) {
                     if (shouldExitApp) finish()
@@ -108,8 +119,8 @@ class MainActivity : ComponentActivity() {
 
                 LaunchedEffect(showControls) {
                     if (showControls) {
-                        delay(200) // ⏳ Espera un toque para asegurar que los controles estén visibles
-                        playFocusRequester.requestFocus() // 🎯 Enfoca el botón de reproducción
+                        delay(200)
+                        playFocusRequester.requestFocus()
                     }
                 }
 
@@ -124,25 +135,26 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         .onKeyEvent { keyEvent ->
-                            if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                                when (keyEvent.nativeKeyEvent.keyCode) {
-                                    KeyEvent.KEYCODE_BACK -> {
-                                        if (viewModel.showControls.value) {
-                                            viewModel.toggleControls(false)
-                                        } else {
-                                            viewModel.requestExit()
-                                        }
-                                        true
-                                    }
-                                    else -> {
-                                        viewModel.toggleControls(true)
-                                        viewModel.setUserInteracting(true)
-                                        viewModel.startUserInteractionTimeout()
-                                        false
-                                    }
+                            val isBack = keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BACK
+                            val isDown = keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN
+
+                            if (isDown && isBack) {
+                                if (viewModel.showControls.value) {
+                                    viewModel.toggleControls(false)
+                                } else {
+                                    viewModel.requestExit()
                                 }
-                            } else false
-                        }
+                                true
+                            } else if (isDown) {
+                                viewModel.toggleControls(true)
+                                viewModel.setUserInteracting(true)
+                                viewModel.startUserInteractionTimeout()
+                                false
+                            } else {
+                                false
+                            }
+
+                         }
                         .focusable()
                 ) {
                     Box(
@@ -259,6 +271,11 @@ class MainActivity : ComponentActivity() {
                                     onSeekFinished = {
                                         viewModel.onSeekFinished()
                                     },
+                                    onFocusDown = { playFocusRequester.requestFocus() },
+                                    onUserInteracted = {
+                                        viewModel.setUserInteracting(true)
+                                        viewModel.startUserInteractionTimeout()
+                                    },
                                     modifier = Modifier.focusRequester(sliderFocusRequester)
                                 )
                             }
@@ -280,24 +297,47 @@ class MainActivity : ComponentActivity() {
                                     isFocused = isPlayFocused,
                                     icon = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                     description = "Play/Pause",
-                                    tint = Color.White
+                                    tint = Color.White,
+                                    enabled = videoUrl.isNotEmpty() && videoLength > 0,
+                                    onUserInteracted = {
+                                        viewModel.setUserInteracting(true)
+                                        viewModel.startUserInteractionTimeout()
+                                    }
                                 )
 
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     TvIconButton(
-                                        onClick = { showSubtitlesDialog = true },
+                                        onClick = {
+                                            if (subtitleTracks.isNotEmpty()) {
+                                                showSubtitlesDialog = true
+                                            }
+                                        },
                                         isFocused = isSubFocused,
                                         icon = Icons.Default.Subtitles,
                                         description = "Subtítulos",
-                                        tint = Color.White
+                                        tint = Color.White,
+                                        enabled = subtitleTracks.isNotEmpty() && videoUrl.isNotEmpty() && videoLength > 0,
+                                        onUserInteracted = {
+                                            viewModel.setUserInteracting(true)
+                                            viewModel.startUserInteractionTimeout()
+                                        }
                                     )
 
                                     TvIconButton(
-                                        onClick = { showAudioDialog.value = true },
+                                        onClick = {
+                                            if (audioTracks.isNotEmpty()) {
+                                                showAudioDialog.value = true
+                                            }
+                                        },
                                         isFocused = isAudioFocused,
                                         icon = Icons.Default.VolumeUp,
                                         description = "Idioma",
-                                        tint = Color.White
+                                        tint = Color.White,
+                                        enabled = audioTracks.isNotEmpty() && videoUrl.isNotEmpty() && videoLength > 0,
+                                        onUserInteracted = {
+                                            viewModel.setUserInteracting(true)
+                                            viewModel.startUserInteractionTimeout()
+                                        }
                                     )
 
                                     TvIconButton(
@@ -305,30 +345,44 @@ class MainActivity : ComponentActivity() {
                                         isFocused = isAspectFocused,
                                         icon = Icons.Default.AspectRatio,
                                         description = "Aspect Ratio",
-                                        tint = Color.White
+                                        tint = Color.White,
+                                        enabled = videoUrl.isNotEmpty() && videoLength > 0,
+                                        onUserInteracted = {
+                                            viewModel.setUserInteracting(true)
+                                            viewModel.startUserInteractionTimeout()
+                                        }
                                     )
                                 }
                             }
 
 
+
                         }
                     }
 
-                    if (showAudioDialog.value) {
+                    if (showAudioDialog.value && audioTracks.isNotEmpty()) {
                         ScrollableDialogList(
                             title = "Selecciona un idioma",
                             items = audioTracks,
                             onItemSelected = { id -> mediaPlayer.setAudioTrack(id) },
-                            onDismiss = { showAudioDialog.value = false }
+                            onDismiss = { showAudioDialog.value = false },
+                            onUserInteracted = {
+                                viewModel.setUserInteracting(true)
+                                viewModel.startUserInteractionTimeout()
+                            }
                         )
                     }
 
-                    if (showSubtitlesDialog) {
+                    if (showSubtitlesDialog && subtitleTracks.isNotEmpty()) {
                         ScrollableDialogList(
                             title = "Seleccionar subtítulo",
                             items = subtitleTracks,
                             onItemSelected = { id -> mediaPlayer.setSpuTrack(id) },
-                            onDismiss = { showSubtitlesDialog = false }
+                            onDismiss = { showSubtitlesDialog = false },
+                            onUserInteracted = {
+                                viewModel.setUserInteracting(true)
+                                viewModel.startUserInteractionTimeout()
+                            }
                         )
                     }
 
@@ -350,7 +404,11 @@ class MainActivity : ComponentActivity() {
                                     8 -> mediaPlayer.setAspectRatio("2:1").also { mediaPlayer.setScale(0f) }
                                 }
                             },
-                            onDismiss = { showAspectRatioDialog = false }
+                            onDismiss = { showAspectRatioDialog = false },
+                            onUserInteracted = {
+                                viewModel.setUserInteracting(true)
+                                viewModel.startUserInteractionTimeout()
+                            }
                         )
                     }
 
@@ -370,6 +428,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+
             }
         }
     }

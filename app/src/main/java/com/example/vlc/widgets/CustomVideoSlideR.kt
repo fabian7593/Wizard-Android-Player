@@ -27,7 +27,8 @@ fun CustomVideoSlider(
     focusColor: Color? = null,
     inactiveColor: Color? = null,
     activeColor: Color? = null,
-
+    onFocusDown: (() -> Unit)? = null,
+    onUserInteracted: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 
 ) {
@@ -37,11 +38,14 @@ fun CustomVideoSlider(
     val isFocused = remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
-    val focusColor = focusColor ?: primeColor
+    val keyHoldStartTime = remember { mutableStateOf<Long?>(null) }
+
+    val focusColor = focusColor ?: Color.White
     val trackHeight = 4.dp
     val thumbRadius = 10.dp
-    val thumbColor = if (isFocused.value || isDragging) focusColor else Color.Black
     val activeColor = activeColor ?: primeColor
+    val thumbColor = if (isFocused.value || isDragging) focusColor else activeColor
+
 
     val inactiveColor = inactiveColor ?: Color.Gray
     val density = LocalDensity.current
@@ -57,26 +61,61 @@ fun CustomVideoSlider(
             .fillMaxWidth()
             .height(thumbRadius * 2)
             .focusRequester(focusRequester)
-            .onFocusChanged { focusState -> isFocused.value = focusState.isFocused }
+            .onFocusChanged { focusState ->
+                isFocused.value = focusState.isFocused
+                if (!focusState.isFocused) {
+                    keyHoldStartTime.value = null
+                }
+            }
             .onKeyEvent { event ->
                 if (!isFocused.value) return@onKeyEvent false
 
+                onUserInteracted?.invoke()
+
                 when {
                     event.key == Key.DirectionRight && event.type == KeyEventType.KeyDown -> {
-                        sliderPosition = (sliderPosition + 5).coerceAtMost(videoLength.toFloat())
+                        val now = System.currentTimeMillis()
+                        val startTime = keyHoldStartTime.value ?: now
+                        keyHoldStartTime.value = startTime
+
+                        val heldDuration = now - startTime
+                        val seekIncrement = when {
+                            heldDuration >= 10_000 -> 30L
+                            heldDuration >= 5_000 -> 20L
+                            else -> 10L
+                        }
+
+                        sliderPosition = (sliderPosition + seekIncrement).coerceAtMost(videoLength.toFloat())
                         onSeekChanged(sliderPosition.toLong())
                         onSeekFinished(sliderPosition.toLong())
                         true
                     }
+
 
                     event.key == Key.DirectionLeft && event.type == KeyEventType.KeyDown -> {
-                        sliderPosition = (sliderPosition - 5).coerceAtLeast(0f)
+                        val now = System.currentTimeMillis()
+                        val startTime = keyHoldStartTime.value ?: now
+                        keyHoldStartTime.value = startTime
+
+                        val heldDuration = now - startTime
+                        val seekIncrement = when {
+                            heldDuration >= 10_000 -> 30L
+                            heldDuration >= 5_000 -> 20L
+                            else -> 10L
+                        }
+
+                        sliderPosition = (sliderPosition - seekIncrement).coerceAtLeast(0f)
                         onSeekChanged(sliderPosition.toLong())
                         onSeekFinished(sliderPosition.toLong())
                         true
                     }
 
-                    event.key == Key.DirectionUp || event.key == Key.DirectionDown -> false
+
+                    //event.key == Key.DirectionUp || event.key == Key.DirectionDown -> false
+                    event.key == Key.DirectionDown && event.type == KeyEventType.KeyDown -> {
+                        onFocusDown?.invoke()
+                        true
+                    }
                     else -> false
                 }
             }
@@ -89,12 +128,16 @@ fun CustomVideoSlider(
                         sliderPosition = newTime.toFloat()
                         onSeekChanged(newTime)
                         onSeekFinished(newTime)
+                        onUserInteracted?.invoke()
                     }
                 )
             }
             .pointerInput(videoLength) {
                 detectDragGestures(
-                    onDragStart = { isDragging = true },
+                    onDragStart = {
+                        onUserInteracted?.invoke()
+                        isDragging = true
+                                  },
                     onDragEnd = {
                         isDragging = false
                         onSeekFinished(sliderPosition.toLong())
@@ -107,6 +150,7 @@ fun CustomVideoSlider(
                         sliderPosition = newPos
                         onSeekChanged(newPos.toLong())
                         change.consume()
+                        onUserInteracted?.invoke()
                     }
                 )
             }
@@ -116,7 +160,9 @@ fun CustomVideoSlider(
             val canvasWidth = size.width
             val canvasHeight = size.height
 
-            val thumbPx = with(density) { thumbRadius.toPx() }
+            val dynamicThumbRadius = if (isFocused.value) thumbRadius * 1.5f else thumbRadius
+            val thumbPx = with(density) { dynamicThumbRadius.toPx() }
+
             val trackY = canvasHeight / 2
             val progress = sliderPosition / videoLength.toFloat()
             val thumbX = progress * canvasWidth
