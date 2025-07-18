@@ -30,6 +30,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.vlc.player.VLCPlayerView
 import com.example.vlc.ui.theme.VLCTheme
+import com.example.vlc.ui.theme.black
+import com.example.vlc.utils.GeneralUtils
 import com.example.vlc.viewmodel.VideoViewModel
 import com.example.vlc.widgets.CustomVideoSlider
 import com.example.vlc.widgets.ScrollableDialogList
@@ -146,18 +148,20 @@ class MainActivity : ComponentActivity() {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Black)
+                            .background(black)
                     ) {
                         if (videoUrl.isNotEmpty()) {
                             VLCPlayerView(
                                 modifier = Modifier.fillMaxSize(),
                                 mediaPlayer = mediaPlayer,
                                 videoUrl = videoUrl,
-                                onTracksLoaded = {
-                                    audioTracks.clear(); audioTracks.addAll(it)
+                                onTracksLoaded = { audioTrack ->
+                                    audioTracks.clear();
+                                    audioTracks.addAll(audioTrack)
                                 },
-                                onSubtitleLoaded = {
-                                    subtitleTracks.clear(); subtitleTracks.addAll(it)
+                                onSubtitleLoaded =  { subtitleTrack ->
+                                    subtitleTracks.clear();
+                                    subtitleTracks.addAll(subtitleTrack)
                                 },
                                 onPlaybackStateChanged = { viewModel.onPlaybackChanged(it) },
                                 onBufferingChanged = { viewModel.onBufferingChanged(it) },
@@ -240,7 +244,7 @@ class MainActivity : ComponentActivity() {
                                     .padding(horizontal = 32.dp)
                             ) {
                                 Text(
-                                    text = "${formatTime(currentTime)} / ${formatTime(videoLength)}",
+                                    text = "${GeneralUtils.formatTime(currentTime)} / ${GeneralUtils.formatTime(videoLength)}",
                                     modifier = Modifier.align(Alignment.End),
                                     color = Color.White
                                 )
@@ -370,11 +374,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun formatTime(seconds: Long): String {
-        val mins = seconds / 60
-        val secs = seconds % 60
-        return "%02d:%02d".format(mins, secs)
-    }
 
     override fun onDestroy() {
         super.onDestroy()

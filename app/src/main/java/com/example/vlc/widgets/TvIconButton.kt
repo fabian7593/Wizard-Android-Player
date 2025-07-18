@@ -1,24 +1,28 @@
 package com.example.vlc.widgets
 
-
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.unit.dp
+import com.example.vlc.ui.theme.primeColor
+
+fun Context.isTelevision(): Boolean {
+    return packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+}
 
 @Composable
 fun TvIconButton(
@@ -31,9 +35,14 @@ fun TvIconButton(
     tint: Color
 ) {
     val focusManager = LocalFocusManager.current
-    IconButton(
-        onClick = onClick,
+    val context = LocalContext.current
+    val isTV = remember { context.isTelevision() }
+
+    val iconSize = 48.dp // Tamaño fijo del botón (no cambia con focus)
+
+    Box(
         modifier = modifier
+            .size(iconSize) // Tamaño fijo evita "movimiento"
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { isFocused.value = it.isFocused }
             .onKeyEvent { keyEvent ->
@@ -55,11 +64,19 @@ fun TvIconButton(
                     }
                 } else false
             }
+            .background(
+                color = if (isTV && isFocused.value) Color.White else Color.Transparent,
+                shape = CircleShape
+            )
+            .focusable()
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = description,
-            tint = if (isFocused.value) Color(0xFF1976D2) else tint
+            tint = if (isFocused.value && isTV) primeColor else tint,
+            modifier = Modifier.size(24.dp) // Ícono centrado, no cambia
         )
     }
 }

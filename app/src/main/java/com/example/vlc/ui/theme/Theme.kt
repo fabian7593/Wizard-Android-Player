@@ -14,16 +14,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 val darkColorScheme = darkColorScheme(
-    primary = Color(0xFFBB86FC),
-    secondary = Color(0xFF03DAC6),
-    background = Color.Black,
-    surface = Color.Black,
+    primary = Color(0xFF3CB0E2),
+    secondary = Color(0xFF5C7EE9),
+    background = Color(0xFF121212),
+    surface = Color(0xFF1E1E1E),
     onPrimary = Color.White,
     onSecondary = Color.White,
     onBackground = Color.White,
     onSurface = Color.White,
 )
-
 
 @Composable
 fun VLCTheme(

@@ -16,6 +16,7 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.example.vlc.ui.theme.primeColor
 
 @Composable
 fun CustomVideoSlider(
@@ -23,20 +24,26 @@ fun CustomVideoSlider(
     videoLength: Long,
     onSeekChanged: (Long) -> Unit,
     onSeekFinished: (Long) -> Unit,
-    modifier: Modifier = Modifier // ✅ AHORA SÍ
+    focusColor: Color? = null,
+    inactiveColor: Color? = null,
+    activeColor: Color? = null,
+
+    modifier: Modifier = Modifier,
+
 ) {
+
     var sliderPosition by remember { mutableStateOf(currentTime.toFloat()) }
     var isDragging by remember { mutableStateOf(false) }
     val isFocused = remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
-    val focusColor = Color(0xFF1976D2)
+    val focusColor = focusColor ?: primeColor
     val trackHeight = 4.dp
     val thumbRadius = 10.dp
-    val thumbColor = if (isFocused.value || isDragging) focusColor else Color.Cyan
-    val activeColor = Color(0xFF1976D2)
+    val thumbColor = if (isFocused.value || isDragging) focusColor else Color.Black
+    val activeColor = activeColor ?: primeColor
 
-    val inactiveColor = Color.Gray
+    val inactiveColor = inactiveColor ?: Color.Gray
     val density = LocalDensity.current
 
     LaunchedEffect(currentTime) {
