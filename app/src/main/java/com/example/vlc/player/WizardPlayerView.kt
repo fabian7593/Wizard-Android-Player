@@ -12,7 +12,7 @@ import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 
 @Composable
-fun VLCPlayerView(
+fun WizardPlayerView(
     modifier: Modifier = Modifier,
     mediaPlayer: MediaPlayer,
     videoUrl: String,
