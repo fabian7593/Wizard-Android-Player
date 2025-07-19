@@ -18,6 +18,20 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.example.vlc.ui.theme.primeColor
 
+/**
+ * Custom video slider that supports keyboard, touch, and drag interactions.
+ *
+ * @param currentTime Current playback time in seconds.
+ * @param videoLength Total video duration in seconds.
+ * @param onSeekChanged Called continuously while user is changing the seek position.
+ * @param onSeekFinished Called once when user finishes seeking.
+ * @param focusColor Color of the thumb when focused or dragging (default: white).
+ * @param inactiveColor Color of the track's background (default: gray).
+ * @param activeColor Color of the filled track (default: theme's primary).
+ * @param onFocusDown Triggered when user presses the DOWN key (useful for D-pad).
+ * @param onUserInteracted Called when the user interacts, to keep UI controls visible.
+ * @param modifier Modifier to apply to the slider.
+ */
 @Composable
 fun CustomVideoSlider(
     currentTime: Long,
@@ -29,26 +43,34 @@ fun CustomVideoSlider(
     activeColor: Color? = null,
     onFocusDown: (() -> Unit)? = null,
     onUserInteracted: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
-
+    modifier: Modifier = Modifier
 ) {
+    // ─────────────────────────────────────────────────────────────
+    // ▶️ State & Initialization
+    // ─────────────────────────────────────────────────────────────
 
-    var sliderPosition by remember { mutableStateOf(currentTime.toFloat()) }
-    var isDragging by remember { mutableStateOf(false) }
-    val isFocused = remember { mutableStateOf(false) }
+    var sliderPosition by remember { mutableStateOf(currentTime.toFloat()) } // Seek position in seconds
+    var isDragging by remember { mutableStateOf(false) }                     // Whether user is dragging
+    val isFocused = remember { mutableStateOf(false) }                       // Whether component is focused
+    val keyHoldStartTime = remember { mutableStateOf<Long?>(null) }         // Track how long key is held
     val focusRequester = remember { FocusRequester() }
 
-    val keyHoldStartTime = remember { mutableStateOf<Long?>(null) }
+    // ─────────────────────────────────────────────────────────────
+    // 🎨 Visual Parameters
+    // ─────────────────────────────────────────────────────────────
 
-    val focusColor = focusColor ?: Color.White
+    val density = LocalDensity.current
+    val finalFocusColor = focusColor ?: Color.White
+    val finalInactiveColor = inactiveColor ?: Color.Gray
+    val finalActiveColor = activeColor ?: primeColor
+
     val trackHeight = 4.dp
     val thumbRadius = 10.dp
-    val activeColor = activeColor ?: primeColor
-    val thumbColor = if (isFocused.value || isDragging) focusColor else activeColor
+    val thumbColor = if (isFocused.value || isDragging) finalFocusColor else finalActiveColor
 
-
-    val inactiveColor = inactiveColor ?: Color.Gray
-    val density = LocalDensity.current
+    // ─────────────────────────────────────────────────────────────
+    // 🔁 Update sliderPosition when not dragging
+    // ─────────────────────────────────────────────────────────────
 
     LaunchedEffect(currentTime) {
         if (!isDragging && !isFocused.value) {
@@ -56,106 +78,143 @@ fun CustomVideoSlider(
         }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // 📦 Main Container
+    // ─────────────────────────────────────────────────────────────
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(thumbRadius * 2)
             .focusRequester(focusRequester)
+
+            // 🧠 Track focus state (for keyboard)
             .onFocusChanged { focusState ->
                 isFocused.value = focusState.isFocused
                 if (!focusState.isFocused) {
                     keyHoldStartTime.value = null
                 }
             }
+
+            // ⌨️ Handle D-pad key events (Left/Right/Down)
             .onKeyEvent { event ->
                 if (!isFocused.value) return@onKeyEvent false
 
-                onUserInteracted?.invoke()
+                try {
+                    onUserInteracted?.invoke()
 
-                when {
-                    event.key == Key.DirectionRight && event.type == KeyEventType.KeyDown -> {
-                        val now = System.currentTimeMillis()
-                        val startTime = keyHoldStartTime.value ?: now
-                        keyHoldStartTime.value = startTime
+                    when {
+                        event.key == Key.DirectionRight && event.type == KeyEventType.KeyDown -> {
+                            val now = System.currentTimeMillis()
+                            val start = keyHoldStartTime.value ?: now
+                            keyHoldStartTime.value = start
 
-                        val heldDuration = now - startTime
-                        val seekIncrement = when {
-                            heldDuration >= 10_000 -> 30L
-                            heldDuration >= 5_000 -> 20L
-                            else -> 10L
+                            val held = now - start
+                            val step = when {
+                                held >= 10_000 -> 30L
+                                held >= 5_000 -> 20L
+                                else -> 10L
+                            }
+
+                            sliderPosition = (sliderPosition + step).coerceAtMost(videoLength.toFloat())
+                            onSeekChanged(sliderPosition.toLong())
+                            onSeekFinished(sliderPosition.toLong())
+                            true
                         }
 
-                        sliderPosition = (sliderPosition + seekIncrement).coerceAtMost(videoLength.toFloat())
-                        onSeekChanged(sliderPosition.toLong())
-                        onSeekFinished(sliderPosition.toLong())
-                        true
-                    }
+                        event.key == Key.DirectionLeft && event.type == KeyEventType.KeyDown -> {
+                            val now = System.currentTimeMillis()
+                            val start = keyHoldStartTime.value ?: now
+                            keyHoldStartTime.value = start
 
+                            val held = now - start
+                            val step = when {
+                                held >= 10_000 -> 30L
+                                held >= 5_000 -> 20L
+                                else -> 10L
+                            }
 
-                    event.key == Key.DirectionLeft && event.type == KeyEventType.KeyDown -> {
-                        val now = System.currentTimeMillis()
-                        val startTime = keyHoldStartTime.value ?: now
-                        keyHoldStartTime.value = startTime
-
-                        val heldDuration = now - startTime
-                        val seekIncrement = when {
-                            heldDuration >= 10_000 -> 30L
-                            heldDuration >= 5_000 -> 20L
-                            else -> 10L
+                            sliderPosition = (sliderPosition - step).coerceAtLeast(0f)
+                            onSeekChanged(sliderPosition.toLong())
+                            onSeekFinished(sliderPosition.toLong())
+                            true
                         }
 
-                        sliderPosition = (sliderPosition - seekIncrement).coerceAtLeast(0f)
-                        onSeekChanged(sliderPosition.toLong())
-                        onSeekFinished(sliderPosition.toLong())
-                        true
-                    }
+                        event.key == Key.DirectionDown && event.type == KeyEventType.KeyDown -> {
+                            onFocusDown?.invoke()
+                            true
+                        }
 
-
-                    //event.key == Key.DirectionUp || event.key == Key.DirectionDown -> false
-                    event.key == Key.DirectionDown && event.type == KeyEventType.KeyDown -> {
-                        onFocusDown?.invoke()
-                        true
+                        else -> false
                     }
-                    else -> false
+                } catch (e: Exception) {
+                    println("⚠️ Error processing key event: ${e.message}")
+                    false
                 }
             }
+
+            // 🖱 Handle taps to seek
             .pointerInput(videoLength) {
-                detectTapGestures(
-                    onTap = { offset ->
+                detectTapGestures(onTap = { offset ->
+                    try {
                         val width = size.width.toFloat()
-                        val clickedFraction = (offset.x / width).coerceIn(0f, 1f)
-                        val newTime = (clickedFraction * videoLength).toLong()
+                        val positionFraction = (offset.x / width).coerceIn(0f, 1f)
+                        val newTime = (positionFraction * videoLength).toLong()
+
                         sliderPosition = newTime.toFloat()
                         onSeekChanged(newTime)
                         onSeekFinished(newTime)
                         onUserInteracted?.invoke()
+                    } catch (e: Exception) {
+                        println("⚠️ Error during tap seek: ${e.message}")
                     }
-                )
+                })
             }
+
+            // 🖱 Handle drag gestures to seek
             .pointerInput(videoLength) {
                 detectDragGestures(
                     onDragStart = {
                         onUserInteracted?.invoke()
                         isDragging = true
-                                  },
+                    },
                     onDragEnd = {
                         isDragging = false
-                        onSeekFinished(sliderPosition.toLong())
+                        try {
+                            onSeekFinished(sliderPosition.toLong())
+                        } catch (e: Exception) {
+                            println("⚠️ Error finishing drag: ${e.message}")
+                        }
                     },
-                    onDragCancel = { isDragging = false },
+                    onDragCancel = {
+                        isDragging = false
+                    },
                     onDrag = { change, dragAmount ->
-                        val width = size.width
-                        val newX = (sliderPosition / videoLength.toFloat()) * width + dragAmount.x
-                        val newPos = ((newX / width) * videoLength).coerceIn(0f, videoLength.toFloat())
-                        sliderPosition = newPos
-                        onSeekChanged(newPos.toLong())
-                        change.consume()
-                        onUserInteracted?.invoke()
+                        try {
+                            val width = size.width
+                            val currentX = (sliderPosition / videoLength.toFloat()) * width
+                            val newX = (currentX + dragAmount.x).coerceIn(0f, width.toFloat())
+                            val newPos = ((newX / width) * videoLength).coerceIn(0f, videoLength.toFloat())
+
+                            sliderPosition = newPos
+                            onSeekChanged(newPos.toLong())
+
+                            onUserInteracted?.invoke()
+                            change.consume()
+                        } catch (e: Exception) {
+                            println("⚠️ Error during drag seek: ${e.message}")
+                        }
                     }
                 )
             }
+
             .focusable()
     ) {
+
+        // ─────────────────────────────────────────────────────────
+        // 🎨 Draw slider: background, progress, thumb
+        // ─────────────────────────────────────────────────────────
+
         Canvas(modifier = Modifier.fillMaxSize()) {
             val canvasWidth = size.width
             val canvasHeight = size.height
@@ -164,23 +223,26 @@ fun CustomVideoSlider(
             val thumbPx = with(density) { dynamicThumbRadius.toPx() }
 
             val trackY = canvasHeight / 2
-            val progress = sliderPosition / videoLength.toFloat()
-            val thumbX = progress * canvasWidth
+            val progressFraction = sliderPosition / videoLength.toFloat()
+            val thumbX = progressFraction * canvasWidth
 
+            // Background line (inactive track)
             drawLine(
-                color = inactiveColor,
+                color = finalInactiveColor,
                 start = Offset(0f, trackY),
                 end = Offset(canvasWidth, trackY),
                 strokeWidth = with(density) { trackHeight.toPx() }
             )
 
+            // Foreground line (active progress)
             drawLine(
-                color = activeColor,
+                color = finalActiveColor,
                 start = Offset(0f, trackY),
                 end = Offset(thumbX, trackY),
                 strokeWidth = with(density) { trackHeight.toPx() }
             )
 
+            // Thumb (circular progress handle)
             drawCircle(
                 color = thumbColor,
                 radius = thumbPx,

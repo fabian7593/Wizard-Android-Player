@@ -19,11 +19,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import com.example.vlc.ui.theme.primeColor
+import com.example.vlc.utils.GeneralUtils.isTelevision
 
-fun Context.isTelevision(): Boolean {
-    return packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
-}
 
+/**
+ * A custom IconButton that supports D-Pad focus, TV navigation and click handling.
+ *
+ * @param onClick Called when the button is clicked (either via tap or Enter key).
+ * @param modifier Optional Modifier to apply to the button layout.
+ * @param focusRequester Optional FocusRequester to request focus programmatically.
+ * @param isFocused State used to track whether this button is focused.
+ * @param icon The icon to display.
+ * @param description Content description for accessibility.
+ * @param tint The color to apply to the icon.
+ * @param onUserInteracted Optional callback when user interacts with the button.
+ * @param enabled Whether the button is enabled or not.
+ */
 @Composable
 fun TvIconButton(
     onClick: () -> Unit,
@@ -36,41 +47,70 @@ fun TvIconButton(
     onUserInteracted: (() -> Unit)? = null,
     enabled: Boolean = true
 ) {
+    // ─────────────────────────────────────────────────────────────
+    // 📡 Context & Device Capabilities
+    // ─────────────────────────────────────────────────────────────
+
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val isTV = remember { context.isTelevision() }
 
-    val iconSize = 48.dp
+    // ─────────────────────────────────────────────────────────────
+    // 📐 Visual Configuration
+    // ─────────────────────────────────────────────────────────────
+
+    val iconSize = 48.dp // Diameter of the outer button circle
+
+    // ─────────────────────────────────────────────────────────────
+    // 🧱 Main Icon Button Container
+    // ─────────────────────────────────────────────────────────────
 
     Box(
         modifier = modifier
             .size(iconSize)
+
+            // Attach optional focus requester if provided
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-            .onFocusChanged {
-                isFocused.value = it.isFocused
-                if (it.isFocused) {
-                    onUserInteracted?.invoke()
+
+            // 📌 Handle focus changes
+            .onFocusChanged { focusState ->
+                isFocused.value = focusState.isFocused
+                if (focusState.isFocused) {
+                    try {
+                        onUserInteracted?.invoke()
+                    } catch (e: Exception) {
+                        println("⚠️ Error during focus change interaction: ${e.message}")
+                    }
                 }
             }
+
+            // ⌨️ Handle D-Pad keys and click
             .onKeyEvent { keyEvent ->
                 if (keyEvent.type == KeyEventType.KeyDown) {
-                    when (keyEvent.key) {
-                        Key.DirectionRight -> {
-                            focusManager.moveFocus(FocusDirection.Right)
-                            true
+                    try {
+                        when (keyEvent.key) {
+                            Key.DirectionRight -> {
+                                focusManager.moveFocus(FocusDirection.Right)
+                                true
+                            }
+                            Key.DirectionLeft -> {
+                                focusManager.moveFocus(FocusDirection.Left)
+                                true
+                            }
+                            Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
+                                onClick()
+                                true
+                            }
+                            else -> false
                         }
-                        Key.DirectionLeft -> {
-                            focusManager.moveFocus(FocusDirection.Left)
-                            true
-                        }
-                        Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
-                            onClick()
-                            true
-                        }
-                        else -> false
+                    } catch (e: Exception) {
+                        println("⚠️ Error handling key event: ${e.message}")
+                        false
                     }
                 } else false
             }
+
+            // 🎨 Background changes when focused on TV
             .background(
                 color = when {
                     isTV && isFocused.value && !enabled -> Color.Gray.copy(alpha = 0.3f)
@@ -79,23 +119,37 @@ fun TvIconButton(
                 },
                 shape = CircleShape
             )
-            .focusable()
+
+            .focusable() // Make this box focusable by keyboard/D-Pad
+
+            // 🖱 Click event (TV & non-TV)
             .clickable(
                 enabled = enabled,
                 onClick = {
-                    onUserInteracted?.invoke()
-                    onClick()
+                    try {
+                        onUserInteracted?.invoke()
+                        onClick()
+                    } catch (e: Exception) {
+                        println("⚠️ Error during click: ${e.message}")
+                    }
                 }
             ),
+
         contentAlignment = Alignment.Center
     ) {
+        // ─────────────────────────────────────────────────────────
+        // 🎨 Icon Rendering
+        // ─────────────────────────────────────────────────────────
+
         Icon(
             imageVector = icon,
             contentDescription = description,
-            tint = if (!enabled) tint.copy(alpha = 0.4f)
-            else if (isFocused.value && isTV) primeColor
-            else tint,
-            modifier = Modifier.size(24.dp)
+            tint = when {
+                !enabled -> tint.copy(alpha = 0.4f)                 // Disabled icon
+                isFocused.value && isTV -> primeColor              // Focused on TV
+                else -> tint                                        // Default state
+            },
+            modifier = Modifier.size(24.dp) // Actual icon size inside circle
         )
     }
 }

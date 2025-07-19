@@ -11,6 +11,19 @@ import kotlinx.coroutines.launch
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 
+/**
+ * WizardPlayerView is a Composable that embeds a native SurfaceView
+ * and initializes the VLC media player with all necessary listeners.
+ *
+ * @param modifier Modifier to be applied to the SurfaceView.
+ * @param mediaPlayer Instance of VLC's MediaPlayer.
+ * @param videoUrl The video URL to load and play.
+ * @param onTracksLoaded Callback that receives available audio tracks.
+ * @param onSubtitleLoaded Callback that receives available subtitle tracks.
+ * @param onPlaybackStateChanged Callback called when playback starts or stops.
+ * @param onBufferingChanged Callback indicating if buffering is active.
+ * @param onDurationChanged Callback triggered when the media duration is known.
+ */
 @Composable
 fun WizardPlayerView(
     modifier: Modifier = Modifier,
@@ -27,74 +40,111 @@ fun WizardPlayerView(
         factory = { context ->
             val surfaceView = SurfaceView(context)
 
+            // Attach lifecycle callbacks to the SurfaceHolder
             surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
                 override fun surfaceCreated(holder: SurfaceHolder) {
+                    // Initialize VLC media playback on background thread
                     GlobalScope.launch(Dispatchers.Default) {
                         try {
-                            val dm = context.resources.displayMetrics
-                            val w = dm.widthPixels
-                            val h = dm.heightPixels
+                            val displayMetrics = context.resources.displayMetrics
+                            val width = displayMetrics.widthPixels
+                            val height = displayMetrics.heightPixels
 
                             val vout = mediaPlayer.vlcVout
+
                             vout.setVideoView(surfaceView)
-                            vout.setWindowSize(w, h)
+                            vout.setWindowSize(width, height)
                             vout.attachViews(null)
 
-                            mediaPlayer.setAspectRatio("$w:$h")
+                            mediaPlayer.setAspectRatio("$width:$height")
                             mediaPlayer.setScale(0f)
 
+                            // Set media player event listener to handle state changes
                             mediaPlayer.setEventListener { event ->
-                                when (event.type) {
-                                    MediaPlayer.Event.Playing -> onPlaybackStateChanged(true)
-                                    MediaPlayer.Event.Paused, MediaPlayer.Event.Stopped, MediaPlayer.Event.EndReached ->
-                                        onPlaybackStateChanged(false)
+                                try {
+                                    when (event.type) {
+                                        MediaPlayer.Event.Playing -> {
+                                            onPlaybackStateChanged(true)
+                                        }
 
-                                    MediaPlayer.Event.Buffering -> {
-                                        onBufferingChanged(event.buffering != 100f)
+                                        MediaPlayer.Event.Paused,
+                                        MediaPlayer.Event.Stopped,
+                                        MediaPlayer.Event.EndReached -> {
+                                            onPlaybackStateChanged(false)
+                                        }
+
+                                        MediaPlayer.Event.Buffering -> {
+                                            onBufferingChanged(event.buffering != 100f)
+                                        }
+
+                                        MediaPlayer.Event.LengthChanged -> {
+                                            onDurationChanged(event.lengthChanged)
+                                        }
+
+                                        MediaPlayer.Event.ESAdded -> {
+                                            // Load audio tracks
+                                            try {
+                                                val audioTracks = mediaPlayer.audioTracks?.map {
+                                                    it.id to (it.name ?: "Audio ${it.id}")
+                                                } ?: emptyList()
+                                                onTracksLoaded(audioTracks)
+                                            } catch (e: Exception) {
+                                                println("⚠️ Error loading audio tracks: ${e.message}")
+                                            }
+
+                                            // Load subtitle tracks
+                                            try {
+                                                val subtitleTracks = mediaPlayer.spuTracks?.map {
+                                                    it.id to (it.name ?: "Sub ${it.id}")
+                                                } ?: emptyList()
+                                                onSubtitleLoaded(subtitleTracks)
+                                            } catch (e: Exception) {
+                                                println("⚠️ Error loading subtitle tracks: ${e.message}")
+                                            }
+                                        }
+
+                                        MediaPlayer.Event.EncounteredError -> {
+                                            println("❌ Playback error encountered")
+                                            onBufferingChanged(false)
+                                        }
                                     }
-
-                                    MediaPlayer.Event.LengthChanged -> {
-                                        onDurationChanged(event.lengthChanged)
-                                    }
-
-                                    MediaPlayer.Event.ESAdded -> {
-                                        onTracksLoaded(mediaPlayer.audioTracks?.map {
-                                            it.id to (it.name ?: "Audio ${it.id}")
-                                        } ?: emptyList())
-
-                                        onSubtitleLoaded(mediaPlayer.spuTracks?.map {
-                                            it.id to (it.name ?: "Sub ${it.id}")
-                                        } ?: emptyList())
-                                    }
-
-                                    MediaPlayer.Event.EncounteredError -> {
-                                        println("❗ Error encontrado en reproducción")
-                                        onBufferingChanged(false)
-                                    }
+                                } catch (e: Exception) {
+                                    println("❌ Error inside VLC event listener: ${e.message}")
                                 }
                             }
 
+                            // Load and play media
                             val media = Media(mediaPlayer.libVLC, android.net.Uri.parse(videoUrl))
                             media.setHWDecoderEnabled(true, true)
+
                             mediaPlayer.media = media
                             media.release()
+
                             mediaPlayer.play()
 
                         } catch (e: Exception) {
-                            println("❌ Error al crear SurfaceView: ${e.message}")
+                            println("❌ Error initializing SurfaceView and media player: ${e.message}")
                         }
                     }
                 }
 
-                override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, h2: Int) {}
+                override fun surfaceChanged(
+                    holder: SurfaceHolder,
+                    format: Int,
+                    width: Int,
+                    height: Int
+                ) {
+                    // No special handling required for size changes
+                }
 
-                override fun surfaceDestroyed(h: SurfaceHolder) {
+                override fun surfaceDestroyed(holder: SurfaceHolder) {
+                    // Clean up VLC views on background thread
                     GlobalScope.launch {
                         try {
                             mediaPlayer.stop()
                             mediaPlayer.vlcVout.detachViews()
                         } catch (e: Exception) {
-                            println("⚠️ Error al destruir Surface: ${e.message}")
+                            println("⚠️ Error while destroying SurfaceView: ${e.message}")
                         }
                     }
                 }
@@ -102,15 +152,16 @@ fun WizardPlayerView(
 
             surfaceView
         },
+
+        // Cleanup logic when AndroidView is released
         onRelease = {
             try {
                 mediaPlayer.stop()
                 mediaPlayer.vlcVout.detachViews()
                 mediaPlayer.setEventListener(null)
             } catch (e: Exception) {
-                println("❌ Error en onRelease VLCPlayerView: ${e.message}")
+                println("❌ Error during VLC player release: ${e.message}")
             }
         }
     )
 }
-

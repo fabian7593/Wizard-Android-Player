@@ -23,3 +23,15 @@ data class VideoItem(
     val season:  Number? = null,
     val episodeNumber: Number? = null
 ) : Parcelable
+
+@Parcelize
+data class PlayerLabels(
+    val nextLabel: String,
+    val audioLabel: String,
+    val subtitleLabel: String,
+    val aspectRatioLabel: String,
+    val exitPrompt: String,
+    val selectAudioTitle: String,
+    val selectSubtitleTitle: String,
+    val aspectRatioTitle: String
+): Parcelable
