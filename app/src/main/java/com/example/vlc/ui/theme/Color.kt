@@ -12,5 +12,4 @@ val Pink40 = Color(0xFF7D5260)
 
 
 
-val black = Color(0xFF121212)
 val primeColor = Color(0xFF5C7EE9)

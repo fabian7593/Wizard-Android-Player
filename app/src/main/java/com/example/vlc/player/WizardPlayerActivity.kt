@@ -54,7 +54,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.vlc.ui.theme.VLCTheme
-import com.example.vlc.ui.theme.black
 import com.example.vlc.utils.GeneralUtils
 import com.example.vlc.viewmodel.VideoViewModel
 import com.example.vlc.widgets.CustomVideoSlider
@@ -76,17 +75,11 @@ class WizardPlayerActivity : ComponentActivity() {
 
         val config = intent.getParcelableExtra<PlayerConfig>("player_config")
 
-        val urls = config?.videoUrls ?: emptyList()
+        val videoItems = config?.videoItems ?: emptyList()
         val index = config?.startIndex ?: 0
 
-        if (urls.isEmpty()) {
-            finish() // No hay nada para reproducir
-            return
-        }
-
-        val selectedUrl = urls.getOrNull(index)
-        if (selectedUrl == null) {
-            finish() // El índice era inválido
+        if (videoItems.isEmpty()) {
+            finish()
             return
         }
 
@@ -142,7 +135,9 @@ class WizardPlayerActivity : ComponentActivity() {
                 val isAudioFocused = remember { mutableStateOf(false) }
                 val isAspectFocused = remember { mutableStateOf(false) }
 
-                var movieNumber by remember { mutableStateOf("") }
+                val currentIndex = remember { mutableStateOf(index) }
+                val currentItem = remember(currentIndex.value) { videoItems.getOrNull(currentIndex.value) }
+
 
                 val backCallback = rememberUpdatedState {
                     if (viewModel.showControls.value) {
@@ -152,7 +147,12 @@ class WizardPlayerActivity : ComponentActivity() {
                     }
                 }
 
-                viewModel.setVideoUrl(selectedUrl)
+                LaunchedEffect(currentItem?.url) {
+                    currentItem?.let {
+                        viewModel.setVideoUrl(it.url)
+                    }
+                }
+
 
                 BackHandler {
                     backCallback.value()
@@ -205,7 +205,7 @@ class WizardPlayerActivity : ComponentActivity() {
                     Box(
                         modifier = Modifier.Companion
                             .fillMaxSize()
-                            .background(black)
+                            .background(Color.Black)
                     ) {
                         if (videoUrl.isNotEmpty()) {
                             WizardPlayerView(
@@ -245,17 +245,30 @@ class WizardPlayerActivity : ComponentActivity() {
                                 .fillMaxSize()
                                 .padding(bottom = 16.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.Companion
+                            Box(
+                                modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.Companion.CenterVertically
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
                             ) {
-                                Column(modifier = Modifier.Companion.padding(start = 8.dp)) {
-                                    Text("Película Destacada", color = Color.Companion.White)
-                                    Text("Subtítulo interesante", color = Color.Companion.LightGray)
+                                Column(modifier = Modifier.align(Alignment.CenterStart)) {
+                                    Text(currentItem?.title ?: "", color = Color.White)
+                                    Text(currentItem?.subtitle ?: "", color = Color.LightGray)
+                                }
+
+                                if (videoItems.size > 1 && currentIndex.value < videoItems.lastIndex) {
+                                    Button(
+                                        onClick = {
+                                            mediaPlayer.stop()
+                                            currentIndex.value += 1
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                                        modifier = Modifier.align(Alignment.CenterEnd)
+                                    ) {
+                                        Text("Siguiente ▶")
+                                    }
                                 }
                             }
+
 
                             Spacer(modifier = Modifier.Companion.weight(1f))
 

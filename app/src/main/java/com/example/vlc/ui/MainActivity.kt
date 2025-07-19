@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.vlc.player.PlayerConfig
+import com.example.vlc.player.VideoItem
 import com.example.vlc.player.WizardVideoPlayer
 
 class MainActivity : ComponentActivity() {
@@ -67,14 +68,19 @@ fun MainScreen() {
         Button(
             onClick = {
                 if (ids.isNotEmpty()) {
-                    val urls = ids.map { id ->
-                        "http://161.97.128.152:80/movie/test777/test777/${id}.mkv"
+
+                    val videoItems = ids.mapIndexed { index, id ->
+                        VideoItem(
+                            title = "Video ${id}",
+                            subtitle = "Subtítulo ${id}",
+                            url = "http://161.97.128.152:80/movie/test777/test777/${id}.mkv"
+                        )
                     }
 
                     val config = PlayerConfig(
-                        videoUrls = urls,
+                        videoItems = videoItems,
                         startIndex = 0,
-                        primaryColor = 0xFF00FF00.toInt(), // Verde
+                        primaryColor = 0xFF00FF00.toInt(),
                         iconSizeDp = 32
                     )
 
