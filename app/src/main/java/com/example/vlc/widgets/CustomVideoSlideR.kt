@@ -16,7 +16,6 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import com.example.vlc.ui.theme.primeColor
 
 /**
  * Custom video slider that supports keyboard, touch, and drag interactions.
@@ -62,7 +61,7 @@ fun CustomVideoSlider(
     val density = LocalDensity.current
     val finalFocusColor = focusColor ?: Color.White
     val finalInactiveColor = inactiveColor ?: Color.Gray
-    val finalActiveColor = activeColor ?: primeColor
+    val finalActiveColor = activeColor ?: Color.Cyan
 
     val trackHeight = 4.dp
     val thumbRadius = 10.dp
@@ -111,9 +110,9 @@ fun CustomVideoSlider(
 
                             val held = now - start
                             val step = when {
-                                held >= 10_000 -> 30L
+                                held >= 7_000 -> 30L
                                 held >= 5_000 -> 20L
-                                else -> 10L
+                                else -> 15L
                             }
 
                             sliderPosition = (sliderPosition + step).coerceAtMost(videoLength.toFloat())

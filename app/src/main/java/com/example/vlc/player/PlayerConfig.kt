@@ -5,15 +5,23 @@ import android.os.Parcelable
 @Parcelize
 data class PlayerConfig(
     val videoItems: List<VideoItem>,
-    val startIndex: Int = 0,
-    val primaryColor: Int = 0xFF1976D2.toInt(),
+    val primaryColor: Int = 0xFF5C7EE9.toInt(), //active color, primary color app
+    val focusColor: Int = 0xFFFFFFFF.toInt(), // WHITE
+    val inactiveColor: Int = 0xFF888888.toInt(), // GRAY
+    val diameterButtonCircleDp: Int = 48,
     val iconSizeDp: Int = 24,
     val showSubtitleButton: Boolean = true,
     val showAudioButton: Boolean = true,
     val showAspectRatioButton: Boolean = true,
-    val autoPlay: Boolean = true
-) : Parcelable
 
+    //Faltantes
+    val preferenceLanguage: String = "en",
+    val preferenceSubtitle: String = "es",
+    val preferenceVideoSize: String = "Auto fit",
+
+    val autoPlay: Boolean = true,
+    val startIndex: Int = 0,
+) : Parcelable
 
 @Parcelize
 data class VideoItem(
@@ -26,12 +34,12 @@ data class VideoItem(
 
 @Parcelize
 data class PlayerLabels(
-    val nextLabel: String,
-    val audioLabel: String,
-    val subtitleLabel: String,
-    val aspectRatioLabel: String,
-    val exitPrompt: String,
-    val selectAudioTitle: String,
-    val selectSubtitleTitle: String,
-    val aspectRatioTitle: String
-): Parcelable
+    val nextLabel: String = "Next ▶",
+    val audioLabel: String = "Audio",
+    val subtitleLabel: String = "Subtitles",
+    val aspectRatioLabel: String = "Aspect",
+    val exitPrompt: String = "Press back again to exit",
+    val selectAudioTitle: String = "Select Audio",
+    val selectSubtitleTitle: String = "Select Subtitles",
+    val aspectRatioTitle: String = "Aspect Ratio"
+) : Parcelable

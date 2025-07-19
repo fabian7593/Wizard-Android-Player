@@ -1,7 +1,5 @@
 package com.example.vlc.widgets
 
-import android.content.Context
-import android.content.pm.PackageManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -17,8 +15,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.vlc.ui.theme.primeColor
 import com.example.vlc.utils.GeneralUtils.isTelevision
 
 
@@ -42,8 +40,11 @@ fun TvIconButton(
     focusRequester: FocusRequester? = null,
     isFocused: MutableState<Boolean>,
     icon: ImageVector,
+    diameterButtonCircleDp: Dp = 48.dp,
+    iconSizeDp: Dp = 24.dp,
     description: String,
-    tint: Color,
+    activeColor: Color,
+    focusColor: Color,
     onUserInteracted: (() -> Unit)? = null,
     enabled: Boolean = true
 ) {
@@ -59,7 +60,7 @@ fun TvIconButton(
     // 📐 Visual Configuration
     // ─────────────────────────────────────────────────────────────
 
-    val iconSize = 48.dp // Diameter of the outer button circle
+    val iconSize = diameterButtonCircleDp // Diameter of the outer button circle
 
     // ─────────────────────────────────────────────────────────────
     // 🧱 Main Icon Button Container
@@ -145,11 +146,11 @@ fun TvIconButton(
             imageVector = icon,
             contentDescription = description,
             tint = when {
-                !enabled -> tint.copy(alpha = 0.4f)                 // Disabled icon
-                isFocused.value && isTV -> primeColor              // Focused on TV
-                else -> tint                                        // Default state
+                !enabled -> focusColor.copy(alpha = 0.4f)                 // Disabled icon
+                isFocused.value && isTV -> activeColor           // Focused on TV
+                else -> focusColor                                        // Default state
             },
-            modifier = Modifier.size(24.dp) // Actual icon size inside circle
+            modifier = Modifier.size(iconSizeDp) // Actual icon size inside circle
         )
     }
 }
