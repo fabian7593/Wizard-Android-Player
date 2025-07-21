@@ -1,5 +1,6 @@
 package com.example.vlc.player
 
+import android.net.Uri
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.runtime.Composable
@@ -32,6 +33,7 @@ fun WizardPlayerView(
     onTracksLoaded: (List<Pair<Int, String>>) -> Unit,
     onSubtitleLoaded: (List<Pair<Int, String>>) -> Unit,
     onPlaybackStateChanged: (Boolean) -> Unit,
+    onEndReached: () -> Unit,
     onBufferingChanged: (Boolean) -> Unit,
     onDurationChanged: (Long) -> Unit
 ) {
@@ -49,15 +51,24 @@ fun WizardPlayerView(
                             val displayMetrics = context.resources.displayMetrics
                             val width = displayMetrics.widthPixels
                             val height = displayMetrics.heightPixels
+                            mediaPlayer.setAspectRatio("$width:$height")
+                            mediaPlayer.setScale(0f)
 
                             val vout = mediaPlayer.vlcVout
-
+                            mediaPlayer.vlcVout.detachViews()
                             vout.setVideoView(surfaceView)
                             vout.setWindowSize(width, height)
                             vout.attachViews(null)
 
-                            mediaPlayer.setAspectRatio("$width:$height")
-                            mediaPlayer.setScale(0f)
+                            if (videoUrl.isNotEmpty()) {
+                                val media = Media(mediaPlayer.libVLC, Uri.parse(videoUrl))
+                                media.setHWDecoderEnabled(true, false)
+                                mediaPlayer.media = media
+                                media.release()
+
+                                mediaPlayer.play()
+                            }
+
 
                             // Set media player event listener to handle state changes
                             mediaPlayer.setEventListener { event ->
@@ -67,9 +78,14 @@ fun WizardPlayerView(
                                             onPlaybackStateChanged(true)
                                         }
 
-                                        MediaPlayer.Event.Paused,
-                                        MediaPlayer.Event.Stopped,
                                         MediaPlayer.Event.EndReached -> {
+                                            println("🎬 VLC Event.EndReached received at ${System.currentTimeMillis()}")
+                                            onPlaybackStateChanged(false)
+                                            onEndReached()
+                                        }
+
+                                        MediaPlayer.Event.Paused,
+                                        MediaPlayer.Event.Stopped -> {
                                             onPlaybackStateChanged(false)
                                         }
 
@@ -103,24 +119,18 @@ fun WizardPlayerView(
                                             }
                                         }
 
+
                                         MediaPlayer.Event.EncounteredError -> {
                                             println("❌ Playback error encountered")
                                             onBufferingChanged(false)
                                         }
+
+
                                     }
                                 } catch (e: Exception) {
                                     println("❌ Error inside VLC event listener: ${e.message}")
                                 }
                             }
-
-                            // Load and play media
-                            val media = Media(mediaPlayer.libVLC, android.net.Uri.parse(videoUrl))
-                            media.setHWDecoderEnabled(true, true)
-
-                            mediaPlayer.media = media
-                            media.release()
-
-                            mediaPlayer.play()
 
                         } catch (e: Exception) {
                             println("❌ Error initializing SurfaceView and media player: ${e.message}")
@@ -164,4 +174,8 @@ fun WizardPlayerView(
             }
         }
     )
+
+
 }
+
+

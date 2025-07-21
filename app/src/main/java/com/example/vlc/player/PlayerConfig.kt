@@ -13,14 +13,14 @@ data class PlayerConfig(
     val showSubtitleButton: Boolean = true,
     val showAudioButton: Boolean = true,
     val showAspectRatioButton: Boolean = true,
+    val autoPlay: Boolean = true,
+    val startIndex: Int = 0,
 
     //Faltantes
     val preferenceLanguage: String = "en",
     val preferenceSubtitle: String = "es",
     val preferenceVideoSize: String = "Auto fit",
 
-    val autoPlay: Boolean = true,
-    val startIndex: Int = 0,
 ) : Parcelable
 
 @Parcelize
@@ -29,7 +29,9 @@ data class VideoItem(
     val subtitle: String,
     val url: String,
     val season:  Number? = null,
-    val episodeNumber: Number? = null
+    val episodeNumber: Number? = null,
+    val lastSecondView: Number? = null,
+    val hasExternalSubtitles: Boolean = false
 ) : Parcelable
 
 @Parcelize

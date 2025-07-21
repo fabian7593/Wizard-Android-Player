@@ -108,7 +108,7 @@ fun ScrollableDialogList(
                                 }
 
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
-                                .focusable()
+                                //.focusable()
                         ) {
                             Text(text = name)
                         }

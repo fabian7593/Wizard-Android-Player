@@ -39,6 +39,8 @@ class VideoViewModel : ViewModel() {
     // Last known playback position in milliseconds
     private var lastKnownPosition: Long = 0
 
+    private var recoveringFromFreeze = false
+
     // ───────────────────────────────────────────────────────────────
     // 👤 User Interaction State
     // ───────────────────────────────────────────────────────────────
@@ -95,24 +97,8 @@ class VideoViewModel : ViewModel() {
     // 🎞 Load & Play Video
     // ───────────────────────────────────────────────────────────────
 
-    fun setVideoUrl(url: String) {
-        if (_videoUrl.value == url) return // Avoid reloading the same URL
-
+    fun prepareVideoUrl(url: String) {
         _videoUrl.value = url
-
-        try {
-            mediaPlayer.stop()
-
-            val media = Media(mediaPlayer.libVLC, Uri.parse(url))
-            media.setHWDecoderEnabled(true, false)
-
-            mediaPlayer.media = media
-            media.release()
-
-            mediaPlayer.play()
-        } catch (e: Exception) {
-            println("❌ Failed to load media: ${e.message}")
-        }
     }
 
     // ───────────────────────────────────────────────────────────────
@@ -128,7 +114,7 @@ class VideoViewModel : ViewModel() {
                         _currentTime.value = mediaPlayer.time / 1000
                     }
                 } catch (e: Exception) {
-                    println("❌ Error getting playback time: ${e.message}")
+                    //println("❌ Error getting playback time: ${e.message}")
                 }
             }
         }
@@ -141,42 +127,77 @@ class VideoViewModel : ViewModel() {
     private fun detectFreeze() {
         viewModelScope.launch {
             while (true) {
-                delay(15000)
+                delay(7000)
+
+                if (!::mediaPlayer.isInitialized || !mediaPlayer.vlcVout.areViewsAttached()) continue
 
                 try {
                     val current = mediaPlayer.time
                     val duration = mediaPlayer.length.coerceAtLeast(1)
 
+                    if (recoveringFromFreeze) {
+                        lastKnownPosition = current
+                        continue
+                    }
+
                     if (current > 0 && current == lastKnownPosition && _isPlaying.value) {
-                        println("⛔ Playback freeze detected at $current ms. Restarting...")
 
                         val position = (current.toFloat() / duration).coerceIn(0f, 0.95f)
 
+                        recoveringFromFreeze = true
                         mediaPlayer.stop()
                         delay(300)
 
                         val media = Media(mediaPlayer.libVLC, Uri.parse(videoUrl.value))
-                        media.setHWDecoderEnabled(true, true)
+                        media.setHWDecoderEnabled(true, false)
                         mediaPlayer.media = media
                         media.release()
 
-                        mediaPlayer.play()
-                        delay(300)
-
-                        if (position >= 0f) {
-                            mediaPlayer.setPosition(position)
+                        val vout = mediaPlayer.vlcVout
+                        if (!vout.areViewsAttached()) {
+                            println("⚠️ SurfaceView not attached. Cannot play.")
+                            recoveringFromFreeze = false
+                            continue
                         }
 
-                        println("✅ Recovered playback at position: $position (${current / 1000}s)")
+                        mediaPlayer.play()
+                        delay(500)
+
+                        mediaPlayer.setPosition(position)
+                        _currentTime.value = (position * duration).toLong() / 1000
+                        _isPlaying.value = true
+                        _isBuffering.value = false
+
+                        // ⏳ Cooldown
+                        delay(6000)
+                        recoveringFromFreeze = false
                     }
 
                     lastKnownPosition = current
+
                 } catch (e: Exception) {
-                    println("❌ Error during freeze detection: ${e.message}")
+                    println("❌ Error in freeze recovery: ${e.message}")
+                    recoveringFromFreeze = false
                 }
             }
         }
     }
+
+
+
+
+    fun disposePlayer() {
+        try {
+
+            mediaPlayer.stop()
+            mediaPlayer.vlcVout.detachViews()
+            mediaPlayer.setEventListener(null)
+            mediaPlayer.release()
+        } catch (e: Exception) {
+            println("🧹 Error disposing player: ${e.message}")
+        }
+    }
+
 
     // ───────────────────────────────────────────────────────────────
     // 🙈 Auto-Hide Controls After Inactivity

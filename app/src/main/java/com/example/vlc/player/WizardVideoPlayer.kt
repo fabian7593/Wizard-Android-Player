@@ -38,6 +38,33 @@ import kotlinx.coroutines.delay
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.MediaPlayer
 
+
+fun createLibVlcConfig(hasExternalSubs: Boolean): ArrayList<String> {
+    return if (hasExternalSubs) {
+        arrayListOf(
+            "--drop-late-frames",
+            "--skip-frames",
+            "--avcodec-fast",
+            "--avcodec-hw=any",
+            "--file-caching=3500",
+            "--network-caching=5000",
+            "--codec=avcodec"
+        )
+    } else {
+        arrayListOf(
+            "--no-drop-late-frames",
+            "--no-skip-frames",
+            "--avcodec-fast",
+            "--avcodec-hw=any",
+            "--file-caching=3000",
+            "--network-caching=7777",
+            "--codec=avcodec"
+        )
+    }
+}
+
+
+
 /**
  * WizardVideoPlayer composable
  * Displays fullscreen VLC-based video playback with customizable controls and multilingual labels.
@@ -48,6 +75,8 @@ fun WizardVideoPlayer(
     labels: PlayerLabels,
     onExit: () -> Unit
 ) {
+
+
     VLCTheme(darkTheme = true) {
         val context = LocalContext.current
         val activity = context as? Activity
@@ -71,22 +100,9 @@ fun WizardVideoPlayer(
         // ───────────────────────────────────────────────────────
         // 🎞️ VLC engine and media player setup
         // ───────────────────────────────────────────────────────
-        val libVLC = remember {
-            LibVLC(
-                context,
-                arrayListOf(
-                    "--no-drop-late-frames",
-                    "--no-skip-frames",
-                    "--avcodec-fast",
-                    "--avcodec-hw=any",
-                    "--file-caching=3000",
-                    "--network-caching=7777",
-                    "--codec=avcodec"
-                )
-            )
-        }
 
-        val mediaPlayer = remember { MediaPlayer(libVLC) }
+        var libVLC by remember { mutableStateOf<LibVLC?>(null) }
+        var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
         // ───────────────────────────────────────────────────────
         // 🔁 State and UI holders
@@ -95,7 +111,7 @@ fun WizardVideoPlayer(
         val sliderFocusRequester = remember { FocusRequester() }
         val viewModel = remember { VideoViewModel() }
 
-        viewModel.mediaPlayer = mediaPlayer
+        //viewModel.mediaPlayer = mediaPlayer
 
         val isPlaying by viewModel.isPlaying.collectAsState()
         val isBuffering by viewModel.isBuffering.collectAsState()
@@ -123,14 +139,39 @@ fun WizardVideoPlayer(
             config.videoItems.getOrNull(currentIndex.value)
         }
 
+        fun playNextOrExit() {
+            if(config.autoPlay){
+                if (currentIndex.value < config.videoItems.lastIndex) {
+                    currentIndex.value += 1
+                } else {
+                    onExit()
+                }
+            }else{
+                onExit()
+            }
+        }
+
         // ───────────────────────────────────────────────────────
         // 📽️ Load video and manage playback state
         // ───────────────────────────────────────────────────────
         LaunchedEffect(currentItem?.url) {
-            try {
-                currentItem?.let { viewModel.setVideoUrl(it.url) }
-            } catch (e: Exception) {
-                println("❌ Failed to load video URL: ${e.message}")
+            currentItem?.let { item ->
+                try {
+                    mediaPlayer?.stop()
+                    mediaPlayer?.release()
+                    libVLC?.release()
+
+                    val options = createLibVlcConfig(item.hasExternalSubtitles)
+                    libVLC = LibVLC(context, options)
+                    val newPlayer = MediaPlayer(libVLC)
+                    mediaPlayer = newPlayer
+                    viewModel.mediaPlayer = newPlayer
+
+                    // Cargar nuevo video
+                    viewModel.prepareVideoUrl(item.url)
+                } catch (e: Exception) {
+                    println("❌ Error switching media player: ${e.message}")
+                }
             }
         }
 
@@ -154,6 +195,18 @@ fun WizardVideoPlayer(
                 viewModel.requestExit()
             }
         }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                try {
+                    viewModel.disposePlayer()
+                    libVLC?.release()
+                } catch (e: Exception) {
+                    println("🧹 Cleanup error: ${e.message}")
+                }
+            }
+        }
+
 
         // ───────────────────────────────────────────────────────
         // 🧱 Main player container with interactions
@@ -190,11 +243,12 @@ fun WizardVideoPlayer(
         ) {
             // ───── Video Background ─────
             Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-                if (videoUrl.isNotEmpty()) {
+                if (videoUrl.isNotEmpty() && mediaPlayer != null) {
 
+                    key(videoUrl + mediaPlayer.hashCode()) {
                         WizardPlayerView(
                             modifier = Modifier.fillMaxSize(),
-                            mediaPlayer = mediaPlayer,
+                            mediaPlayer = mediaPlayer!!,
                             videoUrl = videoUrl,
                             onTracksLoaded = {
                                 audioTracks.clear()
@@ -206,8 +260,10 @@ fun WizardVideoPlayer(
                             },
                             onPlaybackStateChanged = { viewModel.onPlaybackChanged(it) },
                             onBufferingChanged = { viewModel.onBufferingChanged(it) },
+                            onEndReached = {  playNextOrExit() },
                             onDurationChanged = { viewModel.onDurationChanged(it) }
                         )
+                    }
                 }
             }
 
@@ -242,7 +298,6 @@ fun WizardVideoPlayer(
                             Button(
                                 onClick = {
                                     try {
-                                        mediaPlayer.stop()
                                         currentIndex.value += 1
                                     } catch (e: Exception) {
                                         println("⚠️ Failed to switch video: ${e.message}")
@@ -295,7 +350,7 @@ fun WizardVideoPlayer(
                         TvIconButton(
                             onClick = {
                                 try {
-                                    if (isPlaying) mediaPlayer.pause() else mediaPlayer.play()
+                                    if (isPlaying) mediaPlayer?.pause() else mediaPlayer?.play()
                                     viewModel.setIsPlaying(!isPlaying)
                                     viewModel.toggleControls(true)
                                 } catch (e: Exception) {
@@ -382,7 +437,7 @@ fun WizardVideoPlayer(
                 ScrollableDialogList(
                     title = labels.selectAudioTitle,
                     items = audioTracks,
-                    onItemSelected = { mediaPlayer.setAudioTrack(it) },
+                    onItemSelected = { mediaPlayer?.setAudioTrack(it) },
                     onDismiss = { showAudioDialog.value = false },
                     onUserInteracted = {
                         viewModel.setUserInteracting(true)
@@ -395,7 +450,7 @@ fun WizardVideoPlayer(
                 ScrollableDialogList(
                     title = labels.selectSubtitleTitle,
                     items = subtitleTracks,
-                    onItemSelected = { mediaPlayer.setSpuTrack(it) },
+                    onItemSelected = { mediaPlayer?.setSpuTrack(it) },
                     onDismiss = { showSubtitlesDialog = false },
                     onUserInteracted = {
                         viewModel.setUserInteracting(true)
@@ -417,14 +472,14 @@ fun WizardVideoPlayer(
                     onItemSelected = {
                         try {
                             when (it) {
-                                0 -> mediaPlayer.setAspectRatio("").also { mediaPlayer.setScale(0f) }
-                                1 -> mediaPlayer.setAspectRatio("16:9").also { mediaPlayer.setScale(0f) }
-                                2 -> mediaPlayer.setAspectRatio("4:3").also { mediaPlayer.setScale(0f) }
-                                5 -> mediaPlayer.setAspectRatio("21:9").also {
-                                    mediaPlayer.setScale(1f)
-                                    mediaPlayer.setVideoScale(MediaPlayer.ScaleType.SURFACE_FILL)
+                                0 -> mediaPlayer?.setAspectRatio("").also { mediaPlayer?.setScale(0f) }
+                                1 -> mediaPlayer?.setAspectRatio("16:9").also { mediaPlayer?.setScale(0f) }
+                                2 -> mediaPlayer?.setAspectRatio("4:3").also { mediaPlayer?.setScale(0f) }
+                                5 -> mediaPlayer?.setAspectRatio("21:9").also {
+                                    mediaPlayer?.setScale(1f)
+                                    mediaPlayer?.setVideoScale(MediaPlayer.ScaleType.SURFACE_FILL)
                                 }
-                                8 -> mediaPlayer.setAspectRatio("2:1").also { mediaPlayer.setScale(0f) }
+                                8 -> mediaPlayer?.setAspectRatio("2:1").also { mediaPlayer?.setScale(0f) }
                             }
                         } catch (e: Exception) {
                             println("❌ Error changing aspect ratio: ${e.message}")
@@ -459,4 +514,6 @@ fun WizardVideoPlayer(
             }
         }
     }
+
 }
+

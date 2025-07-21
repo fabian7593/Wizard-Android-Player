@@ -93,7 +93,8 @@ fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
                             subtitle = "Subtítulo $id",
                             url = "http://161.97.128.152:80/movie/test777/test777/$id.mkv",
                             season = 1,
-                            episodeNumber = id.toInt()
+                            episodeNumber = id.toInt(),
+                            hasExternalSubtitles = if (id.toInt() == 63) true else false
                         )
                     }
 
