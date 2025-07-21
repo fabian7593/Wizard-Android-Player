@@ -1,5 +1,7 @@
 package com.example.vlc.widgets
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -11,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
@@ -65,9 +68,15 @@ fun TvIconButton(
     // ─────────────────────────────────────────────────────────────
     // 🧱 Main Icon Button Container
     // ─────────────────────────────────────────────────────────────
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused.value) 1.1f else 1f,
+        animationSpec = tween(durationMillis = 150),
+        label = "TV Button Focus Scale"
+    )
 
     Box(
         modifier = modifier
+            .graphicsLayer(scaleX = scale, scaleY = scale)
             .size(iconSize)
 
             // Attach optional focus requester if provided

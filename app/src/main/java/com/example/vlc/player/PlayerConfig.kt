@@ -14,7 +14,7 @@ data class PlayerConfig(
     val showAudioButton: Boolean = true,
     val showAspectRatioButton: Boolean = true,
     val autoPlay: Boolean = true,
-    val startIndex: Int = 0,
+    val startEpisodeNumber: Int? = null,
 
     //Faltantes
     val preferenceLanguage: String = "en",

@@ -16,10 +16,12 @@ import com.example.vlc.player.PlayerConfig
 import com.example.vlc.player.PlayerLabels
 import com.example.vlc.player.VideoItem
 import com.example.vlc.player.WizardVideoPlayer
+import androidx.core.view.ViewCompat
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             var showPlayer by remember { mutableStateOf(false) }
             var config by remember { mutableStateOf<PlayerConfig?>(null) }
@@ -29,6 +31,9 @@ class MainActivity : ComponentActivity() {
                 WizardVideoPlayer(
                     config = config!!,
                     labels = labels,
+                    onGetCurrentTime =
+                    { println("Current time: $it") },
+                    onGetCurrentItem = { println(it) },
                     onExit = {
                         showPlayer = false
                     }
@@ -94,13 +99,14 @@ fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
                             url = "http://161.97.128.152:80/movie/test777/test777/$id.mkv",
                             season = 1,
                             episodeNumber = id.toInt(),
+                            lastSecondView = if (id.toInt() == 63) 5600 else 0,
                             hasExternalSubtitles = if (id.toInt() == 63) true else false
                         )
                     }
 
                     val config = PlayerConfig(
                         videoItems = videoItems,
-                        startIndex = 0,
+                        startEpisodeNumber = 27,
                         iconSizeDp = 32,
                         showSubtitleButton = true,
                         showAudioButton = true,

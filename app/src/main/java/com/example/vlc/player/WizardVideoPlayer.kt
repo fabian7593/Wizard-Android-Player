@@ -31,6 +31,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.example.vlc.ui.theme.VLCTheme
 import com.example.vlc.utils.GeneralUtils
 import com.example.vlc.viewmodel.VideoViewModel
+import com.example.vlc.widgets.AdaptiveNextButton
 import com.example.vlc.widgets.CustomVideoSlider
 import com.example.vlc.widgets.ScrollableDialogList
 import com.example.vlc.widgets.TvIconButton
@@ -73,6 +74,8 @@ fun createLibVlcConfig(hasExternalSubs: Boolean): ArrayList<String> {
 fun WizardVideoPlayer(
     config: PlayerConfig,
     labels: PlayerLabels,
+    onGetCurrentTime: (Long) -> Unit,
+    onGetCurrentItem: (VideoItem?) -> Unit,
     onExit: () -> Unit
 ) {
 
@@ -133,8 +136,16 @@ fun WizardVideoPlayer(
         val isSubFocused = remember { mutableStateOf(false) }
         val isAudioFocused = remember { mutableStateOf(false) }
         val isAspectFocused = remember { mutableStateOf(false) }
+        val nextFocused = remember { mutableStateOf(false) }
 
-        val currentIndex = remember { mutableStateOf(config.startIndex) }
+        val initialIndex = remember(config.startEpisodeNumber, config.videoItems) {
+            config.videoItems.indexOfFirst { item ->
+                item.episodeNumber?.toInt() == config.startEpisodeNumber
+            }.takeIf { it >= 0 } ?: 0
+        }
+
+        val currentIndex = remember { mutableStateOf(initialIndex) }
+
         val currentItem = remember(currentIndex.value) {
             config.videoItems.getOrNull(currentIndex.value)
         }
@@ -144,9 +155,11 @@ fun WizardVideoPlayer(
                 if (currentIndex.value < config.videoItems.lastIndex) {
                     currentIndex.value += 1
                 } else {
+                    onGetCurrentTime(currentTime)
                     onExit()
                 }
             }else{
+                onGetCurrentTime(currentTime)
                 onExit()
             }
         }
@@ -175,6 +188,8 @@ fun WizardVideoPlayer(
             }
         }
 
+
+
         LaunchedEffect(showControls) {
             if (showControls) {
                 delay(200)
@@ -182,8 +197,21 @@ fun WizardVideoPlayer(
             }
         }
 
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(60_000) // ⏳ Espera 1 minuto
+                onGetCurrentTime(currentTime) // ✅ Llama cada minuto con el tiempo actual
+            }
+        }
+
+        LaunchedEffect(currentItem) {
+            onGetCurrentTime(currentTime)
+            onGetCurrentItem(currentItem)
+        }
+
         LaunchedEffect(shouldExitApp) {
             if (shouldExitApp) {
+                onGetCurrentTime(currentTime)
                 onExit()
             }
         }
@@ -295,7 +323,9 @@ fun WizardVideoPlayer(
                         }
 
                         if (config.videoItems.size > 1 && currentIndex.value < config.videoItems.lastIndex) {
-                            Button(
+                            AdaptiveNextButton(
+                                label = labels.nextLabel,
+                                isFocused = nextFocused,
                                 onClick = {
                                     try {
                                         currentIndex.value += 1
@@ -303,18 +333,16 @@ fun WizardVideoPlayer(
                                         println("⚠️ Failed to switch video: ${e.message}")
                                     }
                                 },
-                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                                activeColor = Color(config.primaryColor),
                                 modifier = Modifier.align(Alignment.CenterEnd)
-                            ) {
-                                Text(labels.nextLabel)
-                            }
+                            )
                         }
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
 
                     // ─── Progress & Timestamp ───
-                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                         Text(
                             text = "${GeneralUtils.formatTime(currentTime)} / ${GeneralUtils.formatTime(videoLength)}",
                             modifier = Modifier.align(Alignment.End),

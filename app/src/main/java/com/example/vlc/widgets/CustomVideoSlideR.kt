@@ -1,5 +1,7 @@
 package com.example.vlc.widgets
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -84,6 +86,7 @@ fun CustomVideoSlider(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .padding(bottom = 8.dp)
             .height(thumbRadius * 2)
             .focusRequester(focusRequester)
 
@@ -210,6 +213,12 @@ fun CustomVideoSlider(
             .focusable()
     ) {
 
+        val animatedThumbRadius by animateFloatAsState(
+            targetValue = if (isFocused.value) thumbRadius.value * 1.5f else thumbRadius.value,
+            animationSpec = tween(durationMillis = 150),
+            label = "Slider Focus Thumb Animation"
+        )
+
         // ─────────────────────────────────────────────────────────
         // 🎨 Draw slider: background, progress, thumb
         // ─────────────────────────────────────────────────────────
@@ -218,8 +227,8 @@ fun CustomVideoSlider(
             val canvasWidth = size.width
             val canvasHeight = size.height
 
-            val dynamicThumbRadius = if (isFocused.value) thumbRadius * 1.5f else thumbRadius
-            val thumbPx = with(density) { dynamicThumbRadius.toPx() }
+            val thumbPx = with(density) { animatedThumbRadius.dp.toPx() }
+
 
             val trackY = canvasHeight / 2
             val progressFraction = sliderPosition / videoLength.toFloat()
