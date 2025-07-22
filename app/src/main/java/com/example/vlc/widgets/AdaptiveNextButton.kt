@@ -61,7 +61,6 @@ fun AdaptiveNextButton(
                         when (it.key) {
                             Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
                                 onClick()
-
                                 true
                             }
 

@@ -31,9 +31,11 @@ class MainActivity : ComponentActivity() {
                 WizardVideoPlayer(
                     config = config!!,
                     labels = labels,
-                    onGetCurrentTime =
-                    { println("Current time: $it") },
-                    onGetCurrentItem = { println(it) },
+                    onAudioChanged = { println("New Audio changed: $it") },
+                    onSubtitleChanged = { println("New Subtitle changed: $it")  },
+                    onAspectRatioChanged = { println("New Aspect Ratio: $it") },
+                    onGetCurrentTime ={ println("Current time: $it") },
+                    onGetCurrentItem = { println("Current item: $it") },
                     onExit = {
                         showPlayer = false
                     }

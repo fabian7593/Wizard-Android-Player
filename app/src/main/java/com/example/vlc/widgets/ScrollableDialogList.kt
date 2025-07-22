@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 fun ScrollableDialogList(
     title: String,
     items: List<Pair<Int, String>>,
-    onItemSelected: (Int) -> Unit,
+    onItemSelected: (Int, String?) -> Unit,
     onDismiss: () -> Unit,
     onUserInteracted: (() -> Unit)? = null
 ) {
@@ -77,7 +77,7 @@ fun ScrollableDialogList(
                                 .clickable {
                                     try {
                                         onUserInteracted?.invoke()
-                                        onItemSelected(id)
+                                        onItemSelected(id, name)
                                         onDismiss()
                                     } catch (e: Exception) {
                                         println("⚠️ Error on item click: ${e.message}")
@@ -94,7 +94,7 @@ fun ScrollableDialogList(
                                             keyEvent.key == Key.Enter
                                         ) {
                                             onUserInteracted?.invoke()
-                                            onItemSelected(id)
+                                            onItemSelected(id, name)
                                             onDismiss()
                                             true
                                         } else {

@@ -30,17 +30,16 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.vlc.ui.theme.VLCTheme
 import com.example.vlc.utils.GeneralUtils
+import com.example.vlc.utils.LanguageMatcher
 import com.example.vlc.viewmodel.VideoViewModel
 import com.example.vlc.widgets.AdaptiveNextButton
 import com.example.vlc.widgets.ContinueWatchingDialog
 import com.example.vlc.widgets.CustomVideoSlider
 import com.example.vlc.widgets.ScrollableDialogList
 import com.example.vlc.widgets.TvIconButton
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.MediaPlayer
-
 
 fun createLibVlcConfig(hasExternalSubs: Boolean): ArrayList<String> {
     return if (hasExternalSubs) {
@@ -66,7 +65,13 @@ fun createLibVlcConfig(hasExternalSubs: Boolean): ArrayList<String> {
     }
 }
 
-
+val AspectRatioOptions = listOf(
+    "autofit" to "Auto Fit",
+    "fill" to "Fill",
+    "cinematic" to "Cinematic",
+    "16:9" to "16:9",
+    "4:3" to "4:3"
+)
 
 /**
  * WizardVideoPlayer composable
@@ -76,6 +81,9 @@ fun createLibVlcConfig(hasExternalSubs: Boolean): ArrayList<String> {
 fun WizardVideoPlayer(
     config: PlayerConfig,
     labels: PlayerLabels,
+    onAspectRatioChanged: (String) -> Unit,
+    onAudioChanged: (String) -> Unit,
+    onSubtitleChanged: (String) -> Unit,
     onGetCurrentTime: (Long) -> Unit,
     onGetCurrentItem: (VideoItem?) -> Unit,
     onExit: () -> Unit
@@ -226,7 +234,7 @@ fun WizardVideoPlayer(
                     mediaPlayer = newPlayer
                     viewModel.mediaPlayer = newPlayer
 
-                    // Cargar nuevo video
+                    // Load new video until start it from PlayerView
                     viewModel.prepareVideoUrl(item.url)
 
                 } catch (e: Exception) {
@@ -240,12 +248,19 @@ fun WizardVideoPlayer(
                 delay(200)
                 playFocusRequester.requestFocus()
             }
+
+            if (!showControls) {
+                showAudioDialog.value = false
+                showSubtitlesDialog = false
+                showAspectRatioDialog = false
+                showContinueDialog.value = false
+            }
         }
 
         LaunchedEffect(Unit) {
             while (true) {
-                delay(60_000) // ⏳ Espera 1 minuto
-                onGetCurrentTime(currentTime) // ✅ Llama cada minuto con el tiempo actual
+                delay(180_000) // Wait 3 minutes
+                onGetCurrentTime(currentTime) // Call minute by minute for save it on backend
             }
         }
 
@@ -322,8 +337,15 @@ fun WizardVideoPlayer(
                     key(videoUrl + mediaPlayer.hashCode()) {
                         WizardPlayerView(
                             modifier = Modifier.fillMaxSize(),
+                            config = config,
                             mediaPlayer = mediaPlayer!!,
                             videoUrl = videoUrl,
+                            onAspectRatioChanged = {
+                                onAspectRatioChanged(it)
+                            },
+                            onAudioChanged = {
+                                onAudioChanged(it)
+                            },
                             onTracksLoaded = {
                                 audioTracks.clear()
                                 audioTracks.addAll(it)
@@ -522,7 +544,11 @@ fun WizardVideoPlayer(
                 ScrollableDialogList(
                     title = labels.selectAudioTitle,
                     items = audioTracks,
-                    onItemSelected = { mediaPlayer?.setAudioTrack(it) },
+                    onItemSelected = { id, name ->
+                        mediaPlayer?.setAudioTrack(id)
+                        val langCode = LanguageMatcher.detectLanguageCode(name.toString())
+                        onAudioChanged.invoke(langCode.toString())
+                                     },
                     onDismiss = { showAudioDialog.value = false },
                     onUserInteracted = {
                         viewModel.setUserInteracting(true)
@@ -535,7 +561,11 @@ fun WizardVideoPlayer(
                 ScrollableDialogList(
                     title = labels.selectSubtitleTitle,
                     items = subtitleTracks,
-                    onItemSelected = { mediaPlayer?.setSpuTrack(it) },
+                    onItemSelected = { id, name ->
+                        mediaPlayer?.setSpuTrack(id)
+                        val langCode = LanguageMatcher.detectSubtitleCode(name.toString())
+                        onSubtitleChanged.invoke(langCode.toString())
+                                     },
                     onDismiss = { showSubtitlesDialog = false },
                     onUserInteracted = {
                         viewModel.setUserInteracting(true)
@@ -547,29 +577,42 @@ fun WizardVideoPlayer(
             if (showAspectRatioDialog) {
                 ScrollableDialogList(
                     title = labels.aspectRatioTitle,
-                    items = listOf(
-                        0 to "Auto Fit",
-                        5 to "Fill",
-                        8 to "Cinematic",
-                        1 to "16:9",
-                        2 to "4:3"
-                    ),
-                    onItemSelected = {
+                    items = AspectRatioOptions.mapIndexed { index, pair -> index to pair.second },
+                    onItemSelected = { index, name ->
                         try {
-                            when (it) {
-                                0 -> mediaPlayer?.setAspectRatio("").also { mediaPlayer?.setScale(0f) }
-                                1 -> mediaPlayer?.setAspectRatio("16:9").also { mediaPlayer?.setScale(0f) }
-                                2 -> mediaPlayer?.setAspectRatio("4:3").also { mediaPlayer?.setScale(0f) }
-                                5 -> mediaPlayer?.setAspectRatio("21:9").also {
+                            when (AspectRatioOptions[index].first) {
+                                "autofit" -> {
+                                    mediaPlayer?.setAspectRatio("")
+                                    mediaPlayer?.setScale(0f)
+                                    onAspectRatioChanged.invoke("autofit")
+                                }
+                                "fill" -> {
+                                    mediaPlayer?.setAspectRatio("21:9")
                                     mediaPlayer?.setScale(1f)
                                     mediaPlayer?.setVideoScale(MediaPlayer.ScaleType.SURFACE_FILL)
+                                    onAspectRatioChanged.invoke("fill")
                                 }
-                                8 -> mediaPlayer?.setAspectRatio("2:1").also { mediaPlayer?.setScale(0f) }
+                                "cinematic" -> {
+                                    mediaPlayer?.setAspectRatio("2:1")
+                                    mediaPlayer?.setScale(0f)
+                                    onAspectRatioChanged.invoke("cinematic")
+                                }
+                                "16:9" -> {
+                                    mediaPlayer?.setAspectRatio("16:9")
+                                    mediaPlayer?.setScale(0f)
+                                    onAspectRatioChanged.invoke("16:9")
+                                }
+                                "4:3" -> {
+                                    mediaPlayer?.setAspectRatio("4:3")
+                                    mediaPlayer?.setScale(0f)
+                                    onAspectRatioChanged.invoke("4:3")
+                                }
                             }
                         } catch (e: Exception) {
                             println("❌ Error changing aspect ratio: ${e.message}")
                         }
                     },
+
                     onDismiss = { showAspectRatioDialog = false },
                     onUserInteracted = {
                         viewModel.setUserInteracting(true)
@@ -598,25 +641,20 @@ fun WizardVideoPlayer(
                 }
             }
 
-
-
             //Open the dialog of continue watching
             if (showContinueDialog.value) {
                 ContinueWatchingDialog(
+                    labels = labels,
                     activeColor = Color(config.primaryColor),
                     onContinue = {
-
                         viewModel.onSeekUpdate(currentItem?.lastSecondView?.toLong() ?: 0L)
                         viewModel.onSeekFinished()
-                        //shouldSeekTo.value = currentItem?.lastSecondView?.toLong() ?: 0L
                         showContinueDialog.value = false
                     },
                     onRestart = {
-                        //shouldSeekTo.value = 0L
                         showContinueDialog.value = false
                     },
                     onDismiss = {
-                        // opcional: cerrar diálogo sin acción
                         showContinueDialog.value = false
                     },
                     onUserInteracted = {

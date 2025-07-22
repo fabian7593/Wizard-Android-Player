@@ -15,6 +15,7 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import com.example.vlc.player.PlayerLabels
 
 /**
  * Dialog that asks the user whether to continue watching or restart the episode.
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.Color
  */
 @Composable
 fun ContinueWatchingDialog(
+    labels: PlayerLabels,
     onContinue: () -> Unit,
     onRestart: () -> Unit,
     onDismiss: () -> Unit,
@@ -40,7 +42,7 @@ fun ContinueWatchingDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = "¿Continuar viendo?") },
+        title = { Text(text = labels.titleContinueWatching) },
         text = null,
         confirmButton = {
             TextButton(
@@ -74,7 +76,7 @@ fun ContinueWatchingDialog(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        text = "Continuar viendo",
+                        text = labels.buttonContinueWatching,
                         color = Color.White
                     )
                 }
@@ -112,7 +114,7 @@ fun ContinueWatchingDialog(
 
                 ) {
                     Text(
-                        text = "Reiniciar capítulo",
+                        text = labels.buttonResetVideo,
                         color = Color.White
                     )
                 }

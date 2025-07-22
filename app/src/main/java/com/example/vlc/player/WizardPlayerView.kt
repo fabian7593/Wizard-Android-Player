@@ -6,6 +6,7 @@ import android.view.SurfaceView
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.vlc.utils.LanguageMatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -28,6 +29,7 @@ import org.videolan.libvlc.MediaPlayer
 @Composable
 fun WizardPlayerView(
     modifier: Modifier = Modifier,
+    config: PlayerConfig,
     mediaPlayer: MediaPlayer,
     videoUrl: String,
     onTracksLoaded: (List<Pair<Int, String>>) -> Unit,
@@ -36,7 +38,10 @@ fun WizardPlayerView(
     onEndReached: () -> Unit,
     onBufferingChanged: (Boolean) -> Unit,
     onDurationChanged: (Long) -> Unit,
-    onStart: () -> Unit
+    onStart: () -> Unit,
+    onAspectRatioChanged: ((String) -> Unit)? = null,
+    onAudioChanged: ((String) -> Unit)? = null,
+    onSubtitleChanged: ((String) -> Unit)? = null,
 ) {
     AndroidView(
         modifier = modifier,
@@ -49,16 +54,47 @@ fun WizardPlayerView(
                     // Initialize VLC media playback on background thread
                     GlobalScope.launch(Dispatchers.Default) {
                         try {
-                            val displayMetrics = context.resources.displayMetrics
-                            val width = displayMetrics.widthPixels
-                            val height = displayMetrics.heightPixels
-                            mediaPlayer.setAspectRatio("$width:$height")
-                            mediaPlayer.setScale(0f)
+
+                            //fit by default
+                            // Apply aspect ratio preference
+                            when (config.preferenceVideoSize.lowercase()) {
+                                "autofit" -> {
+                                    mediaPlayer.setAspectRatio("")
+                                    mediaPlayer.setScale(0f)
+                                    onAspectRatioChanged?.invoke("autofit")
+                                }
+                                "fill" -> {
+                                    mediaPlayer.setAspectRatio("21:9")
+                                    mediaPlayer.setScale(1f)
+                                    mediaPlayer.setVideoScale(MediaPlayer.ScaleType.SURFACE_FILL)
+                                    onAspectRatioChanged?.invoke("fill")
+                                }
+                                "cinematic" -> {
+                                    mediaPlayer.setAspectRatio("2:1")
+                                    mediaPlayer.setScale(0f)
+                                    onAspectRatioChanged?.invoke("cinematic")
+                                }
+                                "16:9" -> {
+                                    mediaPlayer.setAspectRatio("16:9")
+                                    mediaPlayer.setScale(0f)
+                                    onAspectRatioChanged?.invoke("16:9")
+                                }
+                                "4:3" -> {
+                                    mediaPlayer.setAspectRatio("4:3")
+                                    mediaPlayer.setScale(0f)
+                                    onAspectRatioChanged?.invoke("4:3")
+                                }
+                                else -> {
+                                    mediaPlayer.setAspectRatio("")
+                                    mediaPlayer.setScale(0f)
+                                    onAspectRatioChanged?.invoke("autofit")
+                                }
+                            }
+
 
                             val vout = mediaPlayer.vlcVout
                             mediaPlayer.vlcVout.detachViews()
                             vout.setVideoView(surfaceView)
-                            vout.setWindowSize(width, height)
                             vout.attachViews(null)
 
                             if (videoUrl.isNotEmpty()) {
@@ -83,7 +119,6 @@ fun WizardPlayerView(
                                         }
 
                                         MediaPlayer.Event.EndReached -> {
-                                            println("🎬 VLC Event.EndReached received at ${System.currentTimeMillis()}")
                                             onPlaybackStateChanged(false)
                                             onEndReached()
                                         }
@@ -107,7 +142,18 @@ fun WizardPlayerView(
                                                 val audioTracks = mediaPlayer.audioTracks?.map {
                                                     it.id to (it.name ?: "Audio ${it.id}")
                                                 } ?: emptyList()
+
                                                 onTracksLoaded(audioTracks)
+
+                                                val preferredAudioTrack = audioTracks.find {
+                                                    LanguageMatcher.matchesLanguage(it.second, config.preferenceLanguage)
+                                                }
+
+                                                preferredAudioTrack?.let {
+                                                    mediaPlayer.setAudioTrack(it.first)
+                                                    onAudioChanged?.invoke(it.second)
+                                                }
+
                                             } catch (e: Exception) {
                                                 println("⚠️ Error loading audio tracks: ${e.message}")
                                             }
@@ -117,7 +163,24 @@ fun WizardPlayerView(
                                                 val subtitleTracks = mediaPlayer.spuTracks?.map {
                                                     it.id to (it.name ?: "Sub ${it.id}")
                                                 } ?: emptyList()
+
+                                                println("📜 SUBTITLE TRACKS DETECTED:")
+                                                subtitleTracks.forEach { (id, name) ->
+                                                    println(" - ID: $id, Name: $name")
+                                                }
+
                                                 onSubtitleLoaded(subtitleTracks)
+
+                                                val preferredSubtitleTrack = subtitleTracks.find {
+                                                    LanguageMatcher.matchesLanguage(it.second, config.preferenceSubtitle)
+                                                }
+
+                                                preferredSubtitleTrack?.let {
+                                                    mediaPlayer.setSpuTrack(it.first)
+                                                    val code = LanguageMatcher.detectSubtitleCode(it.second, config.preferenceSubtitle)
+                                                    onSubtitleChanged?.invoke(code ?: "es")
+                                                }
+
                                             } catch (e: Exception) {
                                                 println("⚠️ Error loading subtitle tracks: ${e.message}")
                                             }

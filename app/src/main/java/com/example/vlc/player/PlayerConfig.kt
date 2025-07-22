@@ -1,6 +1,7 @@
 package com.example.vlc.player
 import kotlinx.parcelize.Parcelize
 import android.os.Parcelable
+import org.videolan.libvlc.MediaPlayer
 
 @Parcelize
 data class PlayerConfig(
@@ -15,18 +16,17 @@ data class PlayerConfig(
     val showAspectRatioButton: Boolean = true,
     val autoPlay: Boolean = true,
     val startEpisodeNumber: Int? = null,
+    val preferenceLanguage: String = "en", //es, es-es, es-mx, en, fr, pt, de, it, ja, ko, zh
+    val preferenceSubtitle: String = "es", //es, es-es, es-mx, en, fr, pt, de, it, ja, ko, zh
+    val preferenceVideoSize: String = "autofit", //fill, cinematic, 16:9, 16:9
 
-    //Faltantes
-    val preferenceLanguage: String = "en",
-    val preferenceSubtitle: String = "es",
-    val preferenceVideoSize: String = "Auto fit",
 
 ) : Parcelable
 
 @Parcelize
 data class VideoItem(
     val title: String,
-    val subtitle: String,
+    val subtitle: String? = null,
     val url: String,
     val season:  Number? = null,
     val episodeNumber: Number? = null,
@@ -43,5 +43,8 @@ data class PlayerLabels(
     val exitPrompt: String = "Press back again to exit",
     val selectAudioTitle: String = "Select Audio",
     val selectSubtitleTitle: String = "Select Subtitles",
-    val aspectRatioTitle: String = "Aspect Ratio"
+    val aspectRatioTitle: String = "Aspect Ratio",
+    val titleContinueWatching: String = "Do you want to continue watching?",
+    val buttonContinueWatching: String = "Continue Watching",
+    val buttonResetVideo: String = "Reset Video",
 ) : Parcelable
