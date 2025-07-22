@@ -1,4 +1,4 @@
-package com.example.vlc.player
+package com.example.vlc.player.surface
 
 import android.net.Uri
 import android.view.SurfaceHolder
@@ -6,6 +6,7 @@ import android.view.SurfaceView
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.vlc.player.PlayerConfig
 import com.example.vlc.utils.Config.applyAspectRatio
 import com.example.vlc.utils.GeneralUtils.shouldForceHWDecoding
 import com.example.vlc.utils.LanguageMatcher

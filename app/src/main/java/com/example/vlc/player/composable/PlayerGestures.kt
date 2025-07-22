@@ -1,0 +1,75 @@
+package com.example.vlc.player.composable
+
+import android.view.KeyEvent
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import com.example.vlc.viewmodel.VideoViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.videolan.libvlc.MediaPlayer
+
+fun Modifier.handlePlayerGestures(
+    isPlaying: Boolean,
+    videoUrl: String,
+    showControls: Boolean,
+    viewModel: VideoViewModel,
+    mediaPlayer: MediaPlayer?,
+    onExit: () -> Unit
+): Modifier {
+    return this
+        .pointerInput(isPlaying) {
+            detectTapGestures(
+                onTap = {
+                    viewModel.toggleControls(true)
+                    viewModel.setUserInteracting(true)
+                    viewModel.startUserInteractionTimeout()
+
+                    if (showControls && videoUrl.isNotEmpty() && mediaPlayer != null) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                if (isPlaying) {
+                                    mediaPlayer.pause()
+                                    viewModel.setIsPlaying(false)
+                                } else {
+                                    mediaPlayer.play()
+                                    viewModel.setIsPlaying(true)
+                                }
+                            } catch (e: Exception) {
+                                println("❌ Error toggling play/pause: ${e.message}")
+                            }
+                        }
+                    }
+                }
+            )
+        }
+        .onKeyEvent { keyEvent ->
+            val isBack = keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BACK
+            val isDown = keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN
+
+            when {
+                isDown && isBack -> {
+                    if (viewModel.showControls.value) {
+                        viewModel.toggleControls(false)
+                    } else {
+                        viewModel.requestExit()
+                        onExit()
+                    }
+                    true
+                }
+
+                isDown -> {
+                    viewModel.toggleControls(true)
+                    viewModel.setUserInteracting(true)
+                    viewModel.startUserInteractionTimeout()
+                    false
+                }
+
+                else -> false
+            }
+        }
+        .focusable()
+}
