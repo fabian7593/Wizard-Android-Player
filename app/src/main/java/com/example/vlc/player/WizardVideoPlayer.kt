@@ -5,14 +5,12 @@ import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.view.KeyEvent
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -33,7 +31,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.example.vlc.ui.theme.VLCTheme
+import com.example.vlc.utils.Config.AspectRatioOptions
+import com.example.vlc.utils.Config.applyAspectRatio
+import com.example.vlc.utils.Config.createLibVlcConfig
+
 import com.example.vlc.utils.GeneralUtils
 import com.example.vlc.utils.LanguageMatcher
 import com.example.vlc.utils.NetworkMonitor
@@ -48,37 +49,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.MediaPlayer
-
-fun createLibVlcConfig(): ArrayList<String> {
-    return arrayListOf(
-            "--avcodec-fast",
-            "--avcodec-hw=mediacodec",
-            "--codec=avcodec",
-
-            "--file-caching=3500",
-            "--network-caching=5000",
-
-            "--drop-late-frames",
-            "--skip-frames",
-
-            "--clock-jitter=500",
-            "--no-osd",
-            "--no-video-title-show",
-
-            "--subsdec-encoding=UTF-8",
-            "--freetype-rel-fontsize=14",
-            "--freetype-outline-thickness=1",
-            "--freetype-shadow-opacity=128"
-        )
-}
-
-val AspectRatioOptions = listOf(
-    "autofit" to "Auto Fit",
-    "fill" to "Fill",
-    "cinematic" to "Cinematic",
-    "16:9" to "16:9",
-    "4:3" to "4:3"
-)
 
 /**
  * WizardVideoPlayer composable
@@ -96,8 +66,6 @@ fun WizardVideoPlayer(
     onExit: () -> Unit
 ) {
 
-
-    VLCTheme(darkTheme = true) {
         val context = LocalContext.current
         val activity = context as? Activity
 
@@ -234,15 +202,13 @@ fun WizardVideoPlayer(
         // ───────────────────────────────────────────────────────
         val coroutineScope = rememberCoroutineScope()
         val latestCurrentItem by rememberUpdatedState(currentItem)
-        val latestShouldExit by rememberUpdatedState(shouldExitApp)
-        val latestIsConnected by rememberUpdatedState(isConnected)
 
-// Start network monitor once
+        // Start network monitor once
         LaunchedEffect(Unit) {
             NetworkMonitor.start(context)
         }
 
-// Handle connectivity, media reinitialization, exit, and playback time
+        // Handle connectivity, media reinitialization, exit, and playback time
         LaunchedEffect(isConnected, currentItem, shouldExitApp) {
             // Handle connection loss
             if (!isConnected) {
@@ -294,7 +260,7 @@ fun WizardVideoPlayer(
             onGetCurrentItem(currentItem)
         }
 
-// UI control visibility logic
+        // UI control visibility logic
         LaunchedEffect(showControls) {
             if (showControls) {
                 delay(200)
@@ -307,16 +273,16 @@ fun WizardVideoPlayer(
             }
         }
 
-// Background timer to report playback progress every 3 minutes
+        // Background timer to report playback progress every 3 minutes
         LaunchedEffect(Unit) {
             while (true) {
-                delay(180_000)
+                delay(config.playbackProgress)
                 onGetCurrentTime(currentTime)
                 onGetCurrentItem(latestCurrentItem)
             }
         }
 
-// Handle back button behavior
+        // Handle back button behavior
         BackHandler {
             if (viewModel.showControls.value) {
                 viewModel.toggleControls(false)
@@ -325,7 +291,7 @@ fun WizardVideoPlayer(
             }
         }
 
-// Cleanup logic when Composable leaves the composition
+        // Cleanup logic when Composable leaves the composition
         DisposableEffect(Unit) {
             onDispose {
                 try {
@@ -664,37 +630,9 @@ fun WizardVideoPlayer(
                     title = labels.aspectRatioTitle,
                     items = AspectRatioOptions.mapIndexed { index, pair -> index to pair.second },
                     onItemSelected = { index, name ->
-                        try {
-                            when (AspectRatioOptions[index].first) {
-                                "autofit" -> {
-                                    mediaPlayer?.setAspectRatio("")
-                                    mediaPlayer?.setScale(0f)
-                                    onAspectRatioChanged.invoke("autofit")
-                                }
-                                "fill" -> {
-                                    mediaPlayer?.setAspectRatio("21:9")
-                                    mediaPlayer?.setScale(1f)
-                                    mediaPlayer?.setVideoScale(MediaPlayer.ScaleType.SURFACE_FILL)
-                                    onAspectRatioChanged.invoke("fill")
-                                }
-                                "cinematic" -> {
-                                    mediaPlayer?.setAspectRatio("2:1")
-                                    mediaPlayer?.setScale(0f)
-                                    onAspectRatioChanged.invoke("cinematic")
-                                }
-                                "16:9" -> {
-                                    mediaPlayer?.setAspectRatio("16:9")
-                                    mediaPlayer?.setScale(0f)
-                                    onAspectRatioChanged.invoke("16:9")
-                                }
-                                "4:3" -> {
-                                    mediaPlayer?.setAspectRatio("4:3")
-                                    mediaPlayer?.setScale(0f)
-                                    onAspectRatioChanged.invoke("4:3")
-                                }
-                            }
-                        } catch (e: Exception) {
-                            println("❌ Error changing aspect ratio: ${e.message}")
+                        val selectedKey = AspectRatioOptions[index].first
+                        applyAspectRatio(mediaPlayer, selectedKey) {
+                            onAspectRatioChanged.invoke(it)
                         }
                     },
 
@@ -735,7 +673,7 @@ fun WizardVideoPlayer(
                 exit = fadeOut(),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 80.dp) // un poco más arriba si querés mostrar ambos a la vez
+                    .padding(bottom = 80.dp)
             ) {
                 Surface(
                     color = Color.Black.copy(alpha = 0.8f),
@@ -748,7 +686,6 @@ fun WizardVideoPlayer(
                     )
                 }
             }
-
 
             //Open the dialog of continue watching
             if (showContinueDialog.value) {
@@ -772,9 +709,6 @@ fun WizardVideoPlayer(
                     }
                 )
             }
-
         }
-    }
-
 }
 

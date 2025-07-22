@@ -6,10 +6,10 @@ import android.view.SurfaceView
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.vlc.utils.Config.applyAspectRatio
 import com.example.vlc.utils.GeneralUtils.shouldForceHWDecoding
 import com.example.vlc.utils.LanguageMatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
@@ -83,38 +83,8 @@ fun WizardPlayerView(
                 val width = displayMetrics.widthPixels
                 val height = displayMetrics.heightPixels
 
-                when (config.preferenceVideoSize.lowercase()) {
-                    "autofit" -> {
-                        mediaPlayer.setAspectRatio("")
-                        mediaPlayer.setScale(0f)
-                        onAspectRatioChanged?.invoke("autofit")
-                    }
-                    "fill" -> {
-                        mediaPlayer.setAspectRatio("21:9")
-                        mediaPlayer.setScale(1f)
-                        mediaPlayer.setVideoScale(MediaPlayer.ScaleType.SURFACE_FILL)
-                        onAspectRatioChanged?.invoke("fill")
-                    }
-                    "cinematic" -> {
-                        mediaPlayer.setAspectRatio("2:1")
-                        mediaPlayer.setScale(0f)
-                        onAspectRatioChanged?.invoke("cinematic")
-                    }
-                    "16:9" -> {
-                        mediaPlayer.setAspectRatio("16:9")
-                        mediaPlayer.setScale(0f)
-                        onAspectRatioChanged?.invoke("16:9")
-                    }
-                    "4:3" -> {
-                        mediaPlayer.setAspectRatio("4:3")
-                        mediaPlayer.setScale(0f)
-                        onAspectRatioChanged?.invoke("4:3")
-                    }
-                    else -> {
-                        mediaPlayer.setAspectRatio("")
-                        mediaPlayer.setScale(0f)
-                        onAspectRatioChanged?.invoke("autofit")
-                    }
+                applyAspectRatio(mediaPlayer, config.preferenceVideoSize) {
+                    onAspectRatioChanged?.invoke(it)
                 }
 
                 val vout = mediaPlayer.vlcVout

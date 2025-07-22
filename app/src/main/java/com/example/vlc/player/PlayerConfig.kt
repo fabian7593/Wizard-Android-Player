@@ -22,6 +22,7 @@ data class PlayerConfig(
     val watermarkResId: Int? = null,
     val showWatermark: Boolean = true,
     val brandingSize: Int? = null,
+    val playbackProgress: Long = 180_000 // 3 minute by playbackl progress
 
 ) : Parcelable
 

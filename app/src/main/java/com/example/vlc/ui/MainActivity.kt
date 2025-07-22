@@ -17,6 +17,7 @@ import com.example.vlc.player.PlayerLabels
 import com.example.vlc.player.VideoItem
 import com.example.vlc.player.WizardVideoPlayer
 import androidx.core.view.ViewCompat
+import com.example.vlc.ui.theme.VLCTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,18 +29,20 @@ class MainActivity : ComponentActivity() {
             val labels = PlayerLabels()
 
             if (showPlayer && config != null) {
-                WizardVideoPlayer(
-                    config = config!!,
-                    labels = labels,
-                    onAudioChanged = { println("New Audio changed: $it") },
-                    onSubtitleChanged = { println("New Subtitle changed: $it")  },
-                    onAspectRatioChanged = { println("New Aspect Ratio: $it") },
-                    onGetCurrentTime ={ println("Current time: $it") },
-                    onGetCurrentItem = { println("Current item: $it") },
-                    onExit = {
-                        showPlayer = false
-                    }
-                )
+                VLCTheme(darkTheme = true) {
+                    WizardVideoPlayer(
+                        config = config!!,
+                        labels = labels,
+                        onAudioChanged = { println("New Audio changed: $it") },
+                        onSubtitleChanged = { println("New Subtitle changed: $it") },
+                        onAspectRatioChanged = { println("New Aspect Ratio: $it") },
+                        onGetCurrentTime = { println("Current time: $it") },
+                        onGetCurrentItem = { println("Current item: $it") },
+                        onExit = {
+                            showPlayer = false
+                        }
+                    )
+                }
             } else {
                 MainScreen(
                     onStartPlayer = {
