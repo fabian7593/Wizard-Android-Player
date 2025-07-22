@@ -36,6 +36,7 @@ fun AdaptiveNextButton(
     isFocused: MutableState<Boolean>,
     onClick: () -> Unit,
     activeColor: Color,
+    onUserInteracted: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -55,12 +56,12 @@ fun AdaptiveNextButton(
                 .graphicsLayer(scaleX = scale, scaleY = scale)
                 .width(160.dp)
                 .height(48.dp)
-                .onFocusChanged { isFocused.value = it.isFocused }
                 .onKeyEvent {
                     if (it.type == KeyEventType.KeyDown) {
                         when (it.key) {
                             Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
                                 onClick()
+
                                 true
                             }
 
@@ -78,7 +79,20 @@ fun AdaptiveNextButton(
                         }
                     } else false
                 }
-                .clickable {onClick }
+                .onFocusChanged { focusState ->
+                    isFocused.value = focusState.isFocused
+                    if (focusState.isFocused) {
+                        try {
+                            onUserInteracted?.invoke()
+                        } catch (e: Exception) {
+                            println("⚠️ Error during focus change interaction: ${e.message}")
+                        }
+                    }
+                }
+                .clickable {
+                    onUserInteracted?.invoke()
+                    onClick()
+                }
                 .focusable()
                 .focusTarget()
                 .background(

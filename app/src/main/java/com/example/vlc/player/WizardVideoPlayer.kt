@@ -32,9 +32,11 @@ import com.example.vlc.ui.theme.VLCTheme
 import com.example.vlc.utils.GeneralUtils
 import com.example.vlc.viewmodel.VideoViewModel
 import com.example.vlc.widgets.AdaptiveNextButton
+import com.example.vlc.widgets.ContinueWatchingDialog
 import com.example.vlc.widgets.CustomVideoSlider
 import com.example.vlc.widgets.ScrollableDialogList
 import com.example.vlc.widgets.TvIconButton
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.MediaPlayer
@@ -110,45 +112,89 @@ fun WizardVideoPlayer(
         // ───────────────────────────────────────────────────────
         // 🔁 State and UI holders
         // ───────────────────────────────────────────────────────
+
+        // Used to request focus for the play/pause button (especially important on Android TV).
         val playFocusRequester = remember { FocusRequester() }
+
+        // Used to request focus for the video slider (for keyboard/remote navigation).
         val sliderFocusRequester = remember { FocusRequester() }
+
+        // The main ViewModel handling player state and logic.
         val viewModel = remember { VideoViewModel() }
 
-        //viewModel.mediaPlayer = mediaPlayer
-
+        // Indicates whether the video is currently playing.
         val isPlaying by viewModel.isPlaying.collectAsState()
+
+        // Indicates whether the video is buffering/loading.
         val isBuffering by viewModel.isBuffering.collectAsState()
+
+        // The current playback position of the video in seconds.
         val currentTime by viewModel.currentTime.collectAsState()
+
+        // The total duration of the video in seconds.
         val videoLength by viewModel.videoLength.collectAsState()
+
+        // Whether the playback controls should be visible on screen.
         val showControls by viewModel.showControls.collectAsState()
+
+        // The current URL of the video being played.
         val videoUrl by viewModel.videoUrl.collectAsState()
+
+        // Whether the player should trigger an exit action (e.g. user requested exit).
         val shouldExitApp by viewModel.shouldExitApp.collectAsState()
+
+        // Whether to display a prompt asking the user to confirm exiting.
         val showExitPrompt by viewModel.showExitPrompt.collectAsState()
 
+        // Controls the visibility of the audio track selection dialog.
         val showAudioDialog = remember { mutableStateOf(false) }
+
+        // Controls the visibility of the subtitle track selection dialog.
         var showSubtitlesDialog by remember { mutableStateOf(false) }
+
+        // Controls the visibility of the aspect ratio selection dialog.
         var showAspectRatioDialog by remember { mutableStateOf(false) }
 
+        // A list of available audio tracks (index and display name).
         val audioTracks = remember { mutableStateListOf<Pair<Int, String>>() }
+
+        // A list of available subtitle tracks (index and display name).
         val subtitleTracks = remember { mutableStateListOf<Pair<Int, String>>() }
 
+        // Whether the play/pause button is currently focused.
         val isPlayFocused = remember { mutableStateOf(false) }
+
+        // Whether the subtitles button is currently focused.
         val isSubFocused = remember { mutableStateOf(false) }
+
+        // Whether the audio button is currently focused.
         val isAudioFocused = remember { mutableStateOf(false) }
+
+        // Whether the aspect ratio button is currently focused.
         val isAspectFocused = remember { mutableStateOf(false) }
+
+        // Whether the "Next" button is currently focused.
         val nextFocused = remember { mutableStateOf(false) }
 
+        // Determines the starting index of the video to be played, based on the episode number.
+        // If the episode number is not found, defaults to index 0.
         val initialIndex = remember(config.startEpisodeNumber, config.videoItems) {
             config.videoItems.indexOfFirst { item ->
                 item.episodeNumber?.toInt() == config.startEpisodeNumber
             }.takeIf { it >= 0 } ?: 0
         }
 
+        // Holds the currently selected video index.
         val currentIndex = remember { mutableStateOf(initialIndex) }
 
+        // The actual video item (title, URL, subtitle, etc.) based on the current index.
         val currentItem = remember(currentIndex.value) {
             config.videoItems.getOrNull(currentIndex.value)
         }
+
+        //Show the dialog of continue episode or reset
+        val showContinueDialog = remember { mutableStateOf(false) }
+
 
         fun playNextOrExit() {
             if(config.autoPlay){
@@ -182,13 +228,12 @@ fun WizardVideoPlayer(
 
                     // Cargar nuevo video
                     viewModel.prepareVideoUrl(item.url)
+
                 } catch (e: Exception) {
                     println("❌ Error switching media player: ${e.message}")
                 }
             }
         }
-
-
 
         LaunchedEffect(showControls) {
             if (showControls) {
@@ -207,6 +252,7 @@ fun WizardVideoPlayer(
         LaunchedEffect(currentItem) {
             onGetCurrentTime(currentTime)
             onGetCurrentItem(currentItem)
+
         }
 
         LaunchedEffect(shouldExitApp) {
@@ -289,7 +335,12 @@ fun WizardVideoPlayer(
                             onPlaybackStateChanged = { viewModel.onPlaybackChanged(it) },
                             onBufferingChanged = { viewModel.onBufferingChanged(it) },
                             onEndReached = {  playNextOrExit() },
-                            onDurationChanged = { viewModel.onDurationChanged(it) }
+                            onDurationChanged = { viewModel.onDurationChanged(it) },
+                            onStart = {
+                                currentItem?.lastSecondView?.toLong()?.takeIf { it > 0 }?.let {
+                                    showContinueDialog.value = true
+                                }
+                            }
                         )
                     }
                 }
@@ -329,11 +380,17 @@ fun WizardVideoPlayer(
                                 onClick = {
                                     try {
                                         currentIndex.value += 1
+                                        isPlayFocused.value = true
+                                        playFocusRequester.requestFocus()
                                     } catch (e: Exception) {
                                         println("⚠️ Failed to switch video: ${e.message}")
                                     }
                                 },
                                 activeColor = Color(config.primaryColor),
+                                onUserInteracted = {
+                                    viewModel.setUserInteracting(true)
+                                    viewModel.startUserInteractionTimeout()
+                                },
                                 modifier = Modifier.align(Alignment.CenterEnd)
                             )
                         }
@@ -440,13 +497,13 @@ fun WizardVideoPlayer(
 
                             if (config.showAspectRatioButton) {
                                 TvIconButton(
-                                    onClick = { showAspectRatioDialog = true },
+                                    onClick = {  if (audioTracks.isNotEmpty()) showAspectRatioDialog = true },
                                     isFocused = isAspectFocused,
                                     icon = Icons.Default.AspectRatio,
                                     description = labels.aspectRatioLabel,
                                     activeColor =  Color(config.primaryColor),
                                     focusColor = Color(config.focusColor),
-                                    enabled = true,
+                                    enabled = audioTracks.isNotEmpty(),
                                     onUserInteracted = {
                                         viewModel.setUserInteracting(true)
                                         viewModel.startUserInteractionTimeout()
@@ -540,6 +597,35 @@ fun WizardVideoPlayer(
                     }
                 }
             }
+
+
+
+            //Open the dialog of continue watching
+            if (showContinueDialog.value) {
+                ContinueWatchingDialog(
+                    activeColor = Color(config.primaryColor),
+                    onContinue = {
+
+                        viewModel.onSeekUpdate(currentItem?.lastSecondView?.toLong() ?: 0L)
+                        viewModel.onSeekFinished()
+                        //shouldSeekTo.value = currentItem?.lastSecondView?.toLong() ?: 0L
+                        showContinueDialog.value = false
+                    },
+                    onRestart = {
+                        //shouldSeekTo.value = 0L
+                        showContinueDialog.value = false
+                    },
+                    onDismiss = {
+                        // opcional: cerrar diálogo sin acción
+                        showContinueDialog.value = false
+                    },
+                    onUserInteracted = {
+                        viewModel.setUserInteracting(true)
+                        viewModel.startUserInteractionTimeout()
+                    }
+                )
+            }
+
         }
     }
 

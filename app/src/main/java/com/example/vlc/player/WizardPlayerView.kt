@@ -35,7 +35,8 @@ fun WizardPlayerView(
     onPlaybackStateChanged: (Boolean) -> Unit,
     onEndReached: () -> Unit,
     onBufferingChanged: (Boolean) -> Unit,
-    onDurationChanged: (Long) -> Unit
+    onDurationChanged: (Long) -> Unit,
+    onStart: () -> Unit
 ) {
     AndroidView(
         modifier = modifier,
@@ -65,15 +66,18 @@ fun WizardPlayerView(
                                 media.setHWDecoderEnabled(true, false)
                                 mediaPlayer.media = media
                                 media.release()
-
                                 mediaPlayer.play()
                             }
-
 
                             // Set media player event listener to handle state changes
                             mediaPlayer.setEventListener { event ->
                                 try {
                                     when (event.type) {
+
+                                        MediaPlayer.Event.Vout -> {
+                                            onStart()
+                                        }
+
                                         MediaPlayer.Event.Playing -> {
                                             onPlaybackStateChanged(true)
                                         }
