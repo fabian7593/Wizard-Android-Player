@@ -19,7 +19,9 @@ data class PlayerConfig(
     val preferenceLanguage: String = "en", //es, es-es, es-mx, en, fr, pt, de, it, ja, ko, zh
     val preferenceSubtitle: String = "es", //es, es-es, es-mx, en, fr, pt, de, it, ja, ko, zh
     val preferenceVideoSize: String = "fill", //autofit, fill, cinematic, 16:9, 4:3
-
+    val watermarkResId: Int? = null,
+    val showWatermark: Boolean = true,
+    val brandingSize: Int? = null,
 
 ) : Parcelable
 

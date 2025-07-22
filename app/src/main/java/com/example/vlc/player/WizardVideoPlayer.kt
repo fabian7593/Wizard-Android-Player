@@ -1,5 +1,6 @@
 package com.example.vlc.player
 
+import com.example.vlc.R
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.view.KeyEvent
@@ -11,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -22,9 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -332,14 +336,30 @@ fun WizardVideoPlayer(
         // 🧱 Main player container with interactions
         // ───────────────────────────────────────────────────────
         Box(
+
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures {
-                        viewModel.toggleControls(true)
-                        viewModel.setUserInteracting(true)
-                        viewModel.startUserInteractionTimeout()
-                    }
+                .pointerInput(isPlaying) {
+                    detectTapGestures(
+                        onTap = {
+                            viewModel.toggleControls(true)
+                            viewModel.setUserInteracting(true)
+                            viewModel.startUserInteractionTimeout()
+
+                            if(showControls){
+                                // Click in screenpause and play
+                                if (videoUrl.isNotEmpty() && mediaPlayer != null) {
+                                    if (isPlaying) {
+                                        mediaPlayer!!.pause()
+                                        viewModel.setIsPlaying(false)
+                                    } else {
+                                        mediaPlayer!!.play()
+                                        viewModel.setIsPlaying(true)
+                                    }
+                                }
+                            }
+                        }
+                    )
                 }
                 .onKeyEvent { keyEvent ->
                     val isBack = keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BACK
@@ -427,8 +447,8 @@ fun WizardVideoPlayer(
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         Column(modifier = Modifier.align(Alignment.CenterStart)) {
-                            Text(currentItem?.title ?: "", color = Color.White)
-                            Text(currentItem?.subtitle ?: "", color = Color.LightGray)
+                            Text(currentItem?.title ?: "", color = Color.White, style = MaterialTheme.typography.titleLarge)
+                            Text(currentItem?.subtitle ?: "", color = Color.LightGray,  style = MaterialTheme.typography.bodyMedium)
                         }
 
                         if (config.videoItems.size > 1 && currentIndex.value < config.videoItems.lastIndex) {
@@ -575,6 +595,26 @@ fun WizardVideoPlayer(
                         }
                     }
                 }
+            }
+
+
+            // ───── Watermark Branding ─────
+            AnimatedVisibility(
+                visible = !showControls && config.showWatermark,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 24.dp, bottom = 24.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = config.watermarkResId ?: R.drawable.icononly_transparent_nobuffer),
+                    contentDescription = "App branding",
+                    tint = Color.Unspecified, // mantiene color original si es PNG/SVG
+                    modifier = Modifier
+                        .size((config.brandingSize ?: 48).dp)
+                        .graphicsLayer(alpha = 0.8f)// ajustable según tu logo
+                )
             }
 
             // ───── Audio / Subtitle / Aspect Dialogs ─────

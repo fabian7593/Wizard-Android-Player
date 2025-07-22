@@ -57,72 +57,105 @@ fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
     var currentId by remember { mutableStateOf("") }
     val ids = remember { mutableStateListOf<String>() }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Text("Agregar ID del capítulo:")
-
-        OutlinedTextField(
-            value = currentId,
-            onValueChange = { currentId = it },
-            label = { Text("ID numérico") },
-            keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Button(
-            onClick = {
-                if (currentId.isNotBlank()) {
-                    ids.add(currentId)
-                    currentId = ""
-                }
-            },
-            modifier = Modifier.align(Alignment.End)
+        Column(
+            modifier = Modifier
+                .widthIn(max = 400.dp)
+                .fillMaxHeight()
+                .padding(top = 32.dp, bottom = 48.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Agregar")
-        }
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
 
-        if (ids.isNotEmpty()) {
-            Text("Capítulos agregados: ${ids.joinToString()}")
-        }
+                OutlinedTextField(
+                    value = currentId,
+                    onValueChange = { currentId = it },
+                    label = { Text("ID numérico") },
+                    keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Button(
-            onClick = {
-                if (ids.isNotEmpty()) {
-                    val videoItems = ids.map { id ->
-                        VideoItem(
-                            title = "Video $id",
-                            subtitle = "Subtítulo $id",
-                            url = "http://161.97.128.152:80/movie/test777/test777/$id.mkv",
-                            season = 1,
-                            episodeNumber = id.toInt(),
-                            lastSecondView = 0,
-                            //lastSecondView = if (id.toInt() == 63) 5600 else 0,
-                            hasExternalSubtitles = if (id.toInt() == 63) true else false
-                        )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Lista horizontal de capítulos agregados
+                    if (ids.isNotEmpty()) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            ids.forEach { id ->
+                                Text(
+                                    text = id,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
 
-                    val config = PlayerConfig(
-                        videoItems = videoItems,
-                        startEpisodeNumber = 27,
-                        iconSizeDp = 32,
-                        showSubtitleButton = true,
-                        showAudioButton = true,
-                        showAspectRatioButton = true,
-                        autoPlay = true
-                    )
-
-                    onStartPlayer(config)
+                    Button(
+                        onClick = {
+                            if (currentId.isNotBlank()) {
+                                ids.add(currentId)
+                                currentId = ""
+                            }
+                        }
+                    ) {
+                        Text("Agregar")
+                    }
                 }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("▶ Reproducir todos los capítulos")
+            }
+
+            Spacer(modifier = Modifier.weight(1f)) // empuja el botón de abajo solo si hay espacio libre
+
+            // Botón final
+            Button(
+                onClick = {
+                    if (ids.isNotEmpty()) {
+                        val videoItems = ids.map { id ->
+                            VideoItem(
+                                title = "Video $id",
+                                subtitle = "Subtítulo $id",
+                                url = "http://161.97.128.152:80/movie/test777/test777/$id.mkv",
+                                season = 1,
+                                episodeNumber = id.toInt(),
+                                lastSecondView = 0,
+                                hasExternalSubtitles = id.toInt() == 63
+                            )
+                        }
+
+                        val config = PlayerConfig(
+                            videoItems = videoItems,
+                            startEpisodeNumber = 27,
+                            iconSizeDp = 32,
+                            showSubtitleButton = true,
+                            showAudioButton = true,
+                            showAspectRatioButton = true,
+                            autoPlay = true
+                        )
+
+                        onStartPlayer(config)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp) // ⛑️ asegura altura fija para que no se achique
+            ) {
+                Text("▶ Reproducir todos los capítulos")
+            }
         }
     }
 }
