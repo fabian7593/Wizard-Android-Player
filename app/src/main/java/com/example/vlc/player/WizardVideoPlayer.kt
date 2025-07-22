@@ -43,32 +43,33 @@ import com.example.vlc.widgets.ContinueWatchingDialog
 import com.example.vlc.widgets.CustomVideoSlider
 import com.example.vlc.widgets.ScrollableDialogList
 import com.example.vlc.widgets.TvIconButton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.MediaPlayer
 
-fun createLibVlcConfig(hasExternalSubs: Boolean): ArrayList<String> {
-    return if (hasExternalSubs) {
-        arrayListOf(
-            "--drop-late-frames",
-            "--skip-frames",
+fun createLibVlcConfig(): ArrayList<String> {
+    return arrayListOf(
             "--avcodec-fast",
-            "--avcodec-hw=any",
+            "--avcodec-hw=mediacodec",
+            "--codec=avcodec",
+
             "--file-caching=3500",
             "--network-caching=5000",
-            "--codec=avcodec"
+
+            "--drop-late-frames",
+            "--skip-frames",
+
+            "--clock-jitter=500",
+            "--no-osd",
+            "--no-video-title-show",
+
+            "--subsdec-encoding=UTF-8",
+            "--freetype-rel-fontsize=14",
+            "--freetype-outline-thickness=1",
+            "--freetype-shadow-opacity=128"
         )
-    } else {
-        arrayListOf(
-            "--no-drop-late-frames",
-            "--no-skip-frames",
-            "--avcodec-fast",
-            "--avcodec-hw=any",
-            "--file-caching=3000",
-            "--network-caching=7777",
-            "--codec=avcodec"
-        )
-    }
 }
 
 val AspectRatioOptions = listOf(
@@ -231,60 +232,74 @@ fun WizardVideoPlayer(
         // ───────────────────────────────────────────────────────
         // Validate Internet Connection
         // ───────────────────────────────────────────────────────
+        val coroutineScope = rememberCoroutineScope()
+        val latestCurrentItem by rememberUpdatedState(currentItem)
+        val latestShouldExit by rememberUpdatedState(shouldExitApp)
+        val latestIsConnected by rememberUpdatedState(isConnected)
+
+// Start network monitor once
         LaunchedEffect(Unit) {
             NetworkMonitor.start(context)
         }
 
-        LaunchedEffect(isConnected) {
+// Handle connectivity, media reinitialization, exit, and playback time
+        LaunchedEffect(isConnected, currentItem, shouldExitApp) {
+            // Handle connection loss
             if (!isConnected) {
-                mediaPlayer?.pause()
-                viewModel.setIsPlaying(false)
+                coroutineScope.launch(Dispatchers.IO) {
+                    mediaPlayer?.pause()
+                    viewModel.setIsPlaying(false)
+                }
                 showConnectionWarning.value = true
                 delay(3000)
                 showConnectionWarning.value = false
-            } else {
-                // Opcional: Si querés que se reanude solo cuando vuelve la conexión:
-                if (viewModel.isPlaying.value.not()) {
-                    mediaPlayer?.play()
-                    viewModel.setIsPlaying(true)
-                }
+                return@LaunchedEffect
             }
-        }
 
-        // ───────────────────────────────────────────────────────
-        // 📽️ Load video and manage playback state
-        // ───────────────────────────────────────────────────────
-        LaunchedEffect(currentItem?.url) {
-            if (!isConnected) return@LaunchedEffect
-
+            // Reinitialize VLC player with new video item
             currentItem?.let { item ->
                 try {
                     mediaPlayer?.stop()
                     mediaPlayer?.release()
                     libVLC?.release()
 
-                    val options = createLibVlcConfig(item.hasExternalSubtitles)
+                    val options = createLibVlcConfig()
                     libVLC = LibVLC(context, options)
                     val newPlayer = MediaPlayer(libVLC)
                     mediaPlayer = newPlayer
                     viewModel.mediaPlayer = newPlayer
-
-                    // Load new video until start it from PlayerView
                     viewModel.prepareVideoUrl(item.url)
 
                 } catch (e: Exception) {
-                    println("❌ Error switching media player: ${e.message}")
+                    println("Error switching media player: ${e.message}")
                 }
             }
+
+            // Resume playback if needed
+            if (!viewModel.isPlaying.value) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    mediaPlayer?.play()
+                    viewModel.setIsPlaying(true)
+                }
+            }
+
+            // Handle exit
+            if (shouldExitApp) {
+                onGetCurrentTime(currentTime)
+                onExit()
+            }
+
+            // Report current video info
+            onGetCurrentTime(currentTime)
+            onGetCurrentItem(currentItem)
         }
 
+// UI control visibility logic
         LaunchedEffect(showControls) {
             if (showControls) {
                 delay(200)
                 playFocusRequester.requestFocus()
-            }
-
-            if (!showControls) {
+            } else {
                 showAudioDialog.value = false
                 showSubtitlesDialog = false
                 showAspectRatioDialog = false
@@ -292,26 +307,16 @@ fun WizardVideoPlayer(
             }
         }
 
+// Background timer to report playback progress every 3 minutes
         LaunchedEffect(Unit) {
             while (true) {
-                delay(180_000) // Wait 3 minutes
-                onGetCurrentTime(currentTime) // Call minute by minute for save it on backend
-            }
-        }
-
-        LaunchedEffect(currentItem) {
-            onGetCurrentTime(currentTime)
-            onGetCurrentItem(currentItem)
-
-        }
-
-        LaunchedEffect(shouldExitApp) {
-            if (shouldExitApp) {
+                delay(180_000)
                 onGetCurrentTime(currentTime)
-                onExit()
+                onGetCurrentItem(latestCurrentItem)
             }
         }
 
+// Handle back button behavior
         BackHandler {
             if (viewModel.showControls.value) {
                 viewModel.toggleControls(false)
@@ -320,16 +325,18 @@ fun WizardVideoPlayer(
             }
         }
 
+// Cleanup logic when Composable leaves the composition
         DisposableEffect(Unit) {
             onDispose {
                 try {
                     viewModel.disposePlayer()
                     libVLC?.release()
                 } catch (e: Exception) {
-                    println("🧹 Cleanup error: ${e.message}")
+                    println("Cleanup error: ${e.message}")
                 }
             }
         }
+
 
 
         // ───────────────────────────────────────────────────────

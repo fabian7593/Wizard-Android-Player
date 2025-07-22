@@ -2,6 +2,7 @@ package com.example.vlc.utils
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 
 object GeneralUtils {
 
@@ -18,5 +19,27 @@ object GeneralUtils {
 
     fun Context.isTelevision(): Boolean {
         return packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+    }
+
+    val isTruchoBox: Boolean
+        get() {
+            val model = Build.MODEL?.lowercase() ?: ""
+            val manufacturer = Build.MANUFACTURER?.lowercase() ?: ""
+            val brand = Build.BRAND?.lowercase() ?: ""
+            val hardware = Build.HARDWARE?.lowercase() ?: ""
+            val product = Build.PRODUCT?.lowercase() ?: ""
+
+            val knownTruchoIndicators = listOf(
+                "rk", "rk3229", "rk3328", "x96", "mxq", "t95", "x88", "t9",
+                "allwinner", "alps", "sunvell", "bqeel", "magicsee", "meecool", "unknown"
+            )
+
+            return knownTruchoIndicators.any {
+                model.contains(it) || manufacturer.contains(it) || brand.contains(it) || hardware.contains(it) || product.contains(it)
+            }
+        }
+
+    fun shouldForceHWDecoding(): Boolean {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !isTruchoBox
     }
 }

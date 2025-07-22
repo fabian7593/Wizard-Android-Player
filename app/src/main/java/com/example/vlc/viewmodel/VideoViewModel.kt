@@ -3,6 +3,7 @@ package com.example.vlc.viewmodel
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.vlc.utils.GeneralUtils.shouldForceHWDecoding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -130,7 +131,7 @@ class VideoViewModel : ViewModel() {
     private fun detectFreeze() {
         viewModelScope.launch {
             while (true) {
-                delay(7000)
+                delay(15000)
 
                 if (!::mediaPlayer.isInitialized || !mediaPlayer.vlcVout.areViewsAttached()) continue
 
@@ -152,7 +153,8 @@ class VideoViewModel : ViewModel() {
                         delay(300)
 
                         val media = Media(mediaPlayer.libVLC, Uri.parse(videoUrl.value))
-                        media.setHWDecoderEnabled(true, false)
+                        val forceHW = shouldForceHWDecoding()
+                        media.setHWDecoderEnabled(true, true)
                         mediaPlayer.media = media
                         media.release()
 
