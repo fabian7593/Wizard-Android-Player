@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -44,6 +45,7 @@ fun CustomVideoSlider(
     activeColor: Color? = null,
     onFocusDown: (() -> Unit)? = null,
     onUserInteracted: (() -> Unit)? = null,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     // ─────────────────────────────────────────────────────────────
@@ -88,6 +90,7 @@ fun CustomVideoSlider(
             .fillMaxWidth()
             .padding(bottom = 8.dp)
             .height(thumbRadius * 2)
+            .alpha(if (enabled) 1f else 0.4f)
             .focusRequester(focusRequester)
 
             // 🧠 Track focus state (for keyboard)
@@ -100,7 +103,7 @@ fun CustomVideoSlider(
 
             // ⌨️ Handle D-pad key events (Left/Right/Down)
             .onKeyEvent { event ->
-                if (!isFocused.value) return@onKeyEvent false
+                if (!isFocused.value || !enabled) return@onKeyEvent false
 
                 try {
                     onUserInteracted?.invoke()
@@ -157,6 +160,8 @@ fun CustomVideoSlider(
 
             // 🖱 Handle taps to seek
             .pointerInput(videoLength) {
+                if (!enabled) return@pointerInput
+
                 detectTapGestures(onTap = { offset ->
                     try {
                         val width = size.width.toFloat()
@@ -175,6 +180,8 @@ fun CustomVideoSlider(
 
             // 🖱 Handle drag gestures to seek
             .pointerInput(videoLength) {
+                if (!enabled) return@pointerInput
+
                 detectDragGestures(
                     onDragStart = {
                         onUserInteracted?.invoke()

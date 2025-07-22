@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.view.KeyEvent
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -31,6 +32,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.example.vlc.ui.theme.VLCTheme
 import com.example.vlc.utils.GeneralUtils
 import com.example.vlc.utils.LanguageMatcher
+import com.example.vlc.utils.NetworkMonitor
 import com.example.vlc.viewmodel.VideoViewModel
 import com.example.vlc.widgets.AdaptiveNextButton
 import com.example.vlc.widgets.ContinueWatchingDialog
@@ -184,6 +186,10 @@ fun WizardVideoPlayer(
         // Whether the "Next" button is currently focused.
         val nextFocused = remember { mutableStateOf(false) }
 
+        //connection
+        val isConnected by NetworkMonitor.isConnected.collectAsState()
+        val showConnectionWarning = remember { mutableStateOf(false) }
+
         // Determines the starting index of the video to be played, based on the episode number.
         // If the episode number is not found, defaults to index 0.
         val initialIndex = remember(config.startEpisodeNumber, config.videoItems) {
@@ -219,9 +225,34 @@ fun WizardVideoPlayer(
         }
 
         // ───────────────────────────────────────────────────────
+        // Validate Internet Connection
+        // ───────────────────────────────────────────────────────
+        LaunchedEffect(Unit) {
+            NetworkMonitor.start(context)
+        }
+
+        LaunchedEffect(isConnected) {
+            if (!isConnected) {
+                mediaPlayer?.pause()
+                viewModel.setIsPlaying(false)
+                showConnectionWarning.value = true
+                delay(3000)
+                showConnectionWarning.value = false
+            } else {
+                // Opcional: Si querés que se reanude solo cuando vuelve la conexión:
+                if (viewModel.isPlaying.value.not()) {
+                    mediaPlayer?.play()
+                    viewModel.setIsPlaying(true)
+                }
+            }
+        }
+
+        // ───────────────────────────────────────────────────────
         // 📽️ Load video and manage playback state
         // ───────────────────────────────────────────────────────
         LaunchedEffect(currentItem?.url) {
+            if (!isConnected) return@LaunchedEffect
+
             currentItem?.let { item ->
                 try {
                     mediaPlayer?.stop()
@@ -330,6 +361,8 @@ fun WizardVideoPlayer(
                 }
                 .focusable()
         ) {
+
+
             // ───── Video Background ─────
             Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
                 if (videoUrl.isNotEmpty() && mediaPlayer != null) {
@@ -355,7 +388,10 @@ fun WizardVideoPlayer(
                                 subtitleTracks.addAll(it)
                             },
                             onPlaybackStateChanged = { viewModel.onPlaybackChanged(it) },
-                            onBufferingChanged = { viewModel.onBufferingChanged(it) },
+                            onBufferingChanged = {
+                                val effectiveBuffering = it || !isConnected
+                                viewModel.onBufferingChanged(effectiveBuffering)
+                                                 },
                             onEndReached = {  playNextOrExit() },
                             onDurationChanged = { viewModel.onDurationChanged(it) },
                             onStart = {
@@ -399,6 +435,7 @@ fun WizardVideoPlayer(
                             AdaptiveNextButton(
                                 label = labels.nextLabel,
                                 isFocused = nextFocused,
+                                enabled = isConnected,
                                 onClick = {
                                     try {
                                         currentIndex.value += 1
@@ -429,6 +466,7 @@ fun WizardVideoPlayer(
                         )
 
                         CustomVideoSlider(
+                            enabled = isConnected,
                             currentTime = currentTime,
                             videoLength = videoLength,
                             onSeekChanged = {
@@ -470,7 +508,7 @@ fun WizardVideoPlayer(
                             description = labels.nextLabel,
                             activeColor =  Color(config.primaryColor),
                             focusColor = Color(config.focusColor),
-                            enabled = videoUrl.isNotEmpty() && videoLength > 0,
+                            enabled = videoUrl.isNotEmpty() && videoLength > 0 && isConnected,
                             onUserInteracted = {
                                 viewModel.setUserInteracting(true)
                                 viewModel.startUserInteractionTimeout()
@@ -489,7 +527,7 @@ fun WizardVideoPlayer(
                                     description = labels.subtitleLabel,
                                     activeColor =  Color(config.primaryColor),
                                     focusColor = Color(config.focusColor),
-                                    enabled = subtitleTracks.isNotEmpty(),
+                                    enabled = subtitleTracks.isNotEmpty() && isConnected,
                                     onUserInteracted = {
                                         viewModel.setUserInteracting(true)
                                         viewModel.startUserInteractionTimeout()
@@ -507,7 +545,7 @@ fun WizardVideoPlayer(
                                     description = labels.audioLabel,
                                     activeColor =  Color(config.primaryColor),
                                     focusColor = Color(config.focusColor),
-                                    enabled = audioTracks.isNotEmpty(),
+                                    enabled = audioTracks.isNotEmpty() && isConnected,
                                     onUserInteracted = {
                                         viewModel.setUserInteracting(true)
                                         viewModel.startUserInteractionTimeout()
@@ -525,7 +563,7 @@ fun WizardVideoPlayer(
                                     description = labels.aspectRatioLabel,
                                     activeColor =  Color(config.primaryColor),
                                     focusColor = Color(config.focusColor),
-                                    enabled = audioTracks.isNotEmpty(),
+                                    enabled = audioTracks.isNotEmpty() && isConnected,
                                     onUserInteracted = {
                                         viewModel.setUserInteracting(true)
                                         viewModel.startUserInteractionTimeout()
@@ -622,24 +660,48 @@ fun WizardVideoPlayer(
             }
 
             // ───── Exit Prompt (double back) ─────
-            if (showExitPrompt) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 32.dp)
+            // ⚠️ Exit prompt
+            AnimatedVisibility(
+                visible = showExitPrompt,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+            ) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.8f),
+                    shape = MaterialTheme.shapes.medium
                 ) {
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.8f),
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Text(
-                            text = labels.exitPrompt,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                        )
-                    }
+                    Text(
+                        text = labels.exitPrompt,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    )
                 }
             }
+
+            // ⚡ Internet connection warning
+            AnimatedVisibility(
+                visible = showConnectionWarning.value,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 80.dp) // un poco más arriba si querés mostrar ambos a la vez
+            ) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.8f),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text(
+                        text = labels.errorConnectionMessage,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    )
+                }
+            }
+
 
             //Open the dialog of continue watching
             if (showContinueDialog.value) {

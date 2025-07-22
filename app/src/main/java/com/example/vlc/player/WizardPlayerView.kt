@@ -55,6 +55,11 @@ fun WizardPlayerView(
                     GlobalScope.launch(Dispatchers.Default) {
                         try {
 
+
+                            val displayMetrics = context.resources.displayMetrics
+                            val width = displayMetrics.widthPixels
+                            val height = displayMetrics.heightPixels
+
                             //fit by default
                             // Apply aspect ratio preference
                             when (config.preferenceVideoSize.lowercase()) {
@@ -95,6 +100,7 @@ fun WizardPlayerView(
                             val vout = mediaPlayer.vlcVout
                             mediaPlayer.vlcVout.detachViews()
                             vout.setVideoView(surfaceView)
+                            vout.setWindowSize(width, height)
                             vout.attachViews(null)
 
                             if (videoUrl.isNotEmpty()) {

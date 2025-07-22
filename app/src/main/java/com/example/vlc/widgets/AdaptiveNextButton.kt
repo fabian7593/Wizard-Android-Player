@@ -34,6 +34,7 @@ import com.example.vlc.utils.GeneralUtils.isTelevision
 fun AdaptiveNextButton(
     label: String,
     isFocused: MutableState<Boolean>,
+    enabled: Boolean,
     onClick: () -> Unit,
     activeColor: Color,
     onUserInteracted: (() -> Unit)? = null,
@@ -53,9 +54,10 @@ fun AdaptiveNextButton(
 
         Box(
             modifier = modifier
-                .graphicsLayer(scaleX = scale, scaleY = scale)
+                .graphicsLayer(scaleX = scale, scaleY = scale, alpha = if (enabled) 1f else 0.5f)
                 .width(160.dp)
                 .height(48.dp)
+
                 .onKeyEvent {
                     if (it.type == KeyEventType.KeyDown) {
                         when (it.key) {
@@ -88,7 +90,12 @@ fun AdaptiveNextButton(
                         }
                     }
                 }
-                .clickable {
+                .clickable(
+                    enabled = enabled,
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                )
+                {
                     onUserInteracted?.invoke()
                     onClick()
                 }
@@ -113,6 +120,7 @@ fun AdaptiveNextButton(
     } else {
         Button(
             onClick = onClick,
+            enabled = enabled,
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             modifier = modifier,
             border = BorderStroke(1.dp, activeColor),

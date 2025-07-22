@@ -18,7 +18,7 @@ data class PlayerConfig(
     val startEpisodeNumber: Int? = null,
     val preferenceLanguage: String = "en", //es, es-es, es-mx, en, fr, pt, de, it, ja, ko, zh
     val preferenceSubtitle: String = "es", //es, es-es, es-mx, en, fr, pt, de, it, ja, ko, zh
-    val preferenceVideoSize: String = "autofit", //fill, cinematic, 16:9, 16:9
+    val preferenceVideoSize: String = "fill", //autofit, fill, cinematic, 16:9, 4:3
 
 
 ) : Parcelable
@@ -47,4 +47,5 @@ data class PlayerLabels(
     val titleContinueWatching: String = "Do you want to continue watching?",
     val buttonContinueWatching: String = "Continue Watching",
     val buttonResetVideo: String = "Reset Video",
+    val errorConnectionMessage: String = "No Internet Connection",
 ) : Parcelable

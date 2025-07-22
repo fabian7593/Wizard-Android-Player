@@ -101,7 +101,8 @@ fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
                             url = "http://161.97.128.152:80/movie/test777/test777/$id.mkv",
                             season = 1,
                             episodeNumber = id.toInt(),
-                            lastSecondView = if (id.toInt() == 63) 5600 else 0,
+                            lastSecondView = 0,
+                            //lastSecondView = if (id.toInt() == 63) 5600 else 0,
                             hasExternalSubtitles = if (id.toInt() == 63) true else false
                         )
                     }
