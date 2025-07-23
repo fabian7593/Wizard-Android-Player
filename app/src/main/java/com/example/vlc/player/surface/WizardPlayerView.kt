@@ -11,10 +11,9 @@ import com.example.vlc.player.config.Config.applyAspectRatio
 import com.example.vlc.utils.AppLogger
 import com.example.vlc.utils.GeneralUtils.shouldForceHWDecoding
 import com.example.vlc.utils.LanguageMatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
+import java.util.concurrent.ExecutorService
 
 @Composable
 fun WizardPlayerView(
@@ -22,6 +21,7 @@ fun WizardPlayerView(
     config: PlayerConfig,
     mediaPlayer: MediaPlayer,
     videoUrl: String,
+    executor: ExecutorService,
     onTracksLoaded: (List<Pair<Int, String>>) -> Unit,
     onSubtitleLoaded: (List<Pair<Int, String>>) -> Unit,
     onPlaybackStateChanged: (Boolean) -> Unit,
@@ -33,7 +33,6 @@ fun WizardPlayerView(
     onAudioChanged: ((String) -> Unit)? = null,
     onSubtitleChanged: ((String) -> Unit)? = null,
 ) {
-    val scope = rememberCoroutineScope()
     var surfaceHolder by remember { mutableStateOf<SurfaceHolder?>(null) }
     var surfaceViewRef by remember { mutableStateOf<SurfaceView?>(null) }
 
@@ -78,7 +77,7 @@ fun WizardPlayerView(
     LaunchedEffect(surfaceHolder, videoUrl) {
         if (surfaceHolder == null || surfaceViewRef == null || videoUrl.isBlank()) return@LaunchedEffect
 
-        withContext(Dispatchers.IO) {
+        executor.execute {
             try {
                 val context = surfaceViewRef!!.context
                 val displayMetrics = context.resources.displayMetrics

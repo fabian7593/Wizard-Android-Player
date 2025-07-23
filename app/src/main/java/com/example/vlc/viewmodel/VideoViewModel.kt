@@ -14,6 +14,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
+import java.util.concurrent.Executors
 
 class VideoViewModel : ViewModel() {
 
@@ -109,16 +110,17 @@ class VideoViewModel : ViewModel() {
             while (isActive) {
                 delay(1000)
                 try {
-                    if (_isPlaying.value && !seeking) {
+                    if (::mediaPlayer.isInitialized && _isPlaying.value && !seeking) {
                         _currentTime.value = mediaPlayer.time / 1000
                     }
                 } catch (e: Exception) {
                     AppLogger.error("VideoViewModel", "❌ Error getting playback time: ${e.message}")
-                    cancel()
+                    cancel() // Cancela coroutine si VLC explota
                 }
             }
         }
     }
+
 
 
 
@@ -294,6 +296,22 @@ class VideoViewModel : ViewModel() {
                 delay(2000)
                 _showExitPrompt.value = false
             }
+        }
+    }
+
+
+
+    private val vlcExecutor = Executors.newSingleThreadExecutor {
+        Thread(it, "VLC-Executor").apply { priority = Thread.MAX_PRIORITY }
+    }
+    fun getExecutor() = vlcExecutor
+
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            vlcExecutor.shutdownNow()
+        } catch (e: Exception) {
+            AppLogger.warning("VideoViewModel", "⚠️ Error shutting down executor: ${e.message}")
         }
     }
 }

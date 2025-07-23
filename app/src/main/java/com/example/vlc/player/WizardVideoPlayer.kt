@@ -250,11 +250,14 @@ fun WizardVideoPlayer(
             if (videoUrl.isNotEmpty() && mediaPlayer != null) {
 
                 key(videoUrl + mediaPlayer.hashCode()) {
+                    val executor = viewModel.getExecutor()
+
                     WizardPlayerView(
                         modifier = Modifier.fillMaxSize(),
                         config = config,
                         mediaPlayer = mediaPlayer!!,
                         videoUrl = videoUrl,
+                        executor = executor,
                         onAspectRatioChanged = {
                             onAspectRatioChanged(it)
                         },

@@ -14,7 +14,7 @@ object Config {
             "--codec=avcodec",
 
             "--file-caching=3500",
-            "--network-caching=5000",
+            "--network-caching=7777",
 
             "--drop-late-frames",
             "--skip-frames",
@@ -23,10 +23,12 @@ object Config {
             "--no-osd",
             "--no-video-title-show",
 
-            /*"--subsdec-encoding=UTF-8",
-            "--freetype-rel-fontsize=14",
-            "--freetype-outline-thickness=1",
-            "--freetype-shadow-opacity=128"*/
+            "--sub-filter=marq",                // Usa subtítulos simplificados
+            "--freetype-rel-fontsize=20",         // Tamaño relativo de fuente
+            "--freetype-outline-thickness=1",     // Grosor del borde para legibilidad
+            "--freetype-color=0xffffff",        // Blanco
+            "--freetype-shadow-opacity=0",
+            "--sub-fps=3",
         )
     }
 

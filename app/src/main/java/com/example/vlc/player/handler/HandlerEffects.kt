@@ -81,6 +81,8 @@ fun HandleMediaPlayerReinit(
                 mediaPlayer?.release()
                 libVLC?.release()
 
+                delay(100)
+
                 val options = createLibVlcConfig()
                 val newLib = LibVLC(context, options)
                 val newPlayer = MediaPlayer(newLib)
