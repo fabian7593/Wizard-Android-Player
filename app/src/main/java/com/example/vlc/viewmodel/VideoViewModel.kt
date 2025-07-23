@@ -121,9 +121,6 @@ class VideoViewModel : ViewModel() {
         }
     }
 
-
-
-
     // ───────────────────────────────────────────────────────────────
     // 🧊 Detect Frozen Playback & Auto-Recover
     // ──────────────────────────────────────────────────────────────
@@ -258,6 +255,10 @@ class VideoViewModel : ViewModel() {
         _videoLength.value = durationMs / 1000
     }
 
+    fun resetPlaybackTime() {
+        _currentTime.value = 0L
+    }
+
     // ───────────────────────────────────────────────────────────────
     // ⏩ Seek Operations
     // ───────────────────────────────────────────────────────────────
@@ -276,7 +277,6 @@ class VideoViewModel : ViewModel() {
             mediaPlayer.setPosition(seekFraction)
         } catch (e: Exception) {
             AppLogger.error("VideoViewModel", "❌ Error while seeking: ${e.message}")
-
         } finally {
             seeking = false
         }
@@ -300,12 +300,10 @@ class VideoViewModel : ViewModel() {
     }
 
 
-
     private val vlcExecutor = Executors.newSingleThreadExecutor {
         Thread(it, "VLC-Executor").apply { priority = Thread.MAX_PRIORITY }
     }
     fun getExecutor() = vlcExecutor
-
     override fun onCleared() {
         super.onCleared()
         try {

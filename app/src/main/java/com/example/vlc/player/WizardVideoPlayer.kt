@@ -162,9 +162,7 @@ fun WizardVideoPlayer(
 
     //Show the dialog of continue episode or reset
     val showContinueDialog = remember { mutableStateOf(false) }
-
     val TAG = "WizardVideoPlayer"
-
 
     // ───────────────────────────────────────────────────────
     // Validate Internet Connection
@@ -179,7 +177,8 @@ fun WizardVideoPlayer(
         libVLC = libVLC,
         setMediaPlayer = { mediaPlayer = it },
         setLibVLC = { libVLC = it },
-        viewModel = viewModel
+        viewModel = viewModel,
+        config = config
     )
     //get current item and get current time
     ReportCurrentPlaybackStatus(
@@ -387,6 +386,7 @@ fun WizardVideoPlayer(
                 ) {
                     TvIconButton(
                         onClick = {
+                            if (videoUrl.isEmpty() || videoLength <= 0 || !isConnected) return@TvIconButton
                             try {
                                 if (isPlaying) mediaPlayer?.pause() else mediaPlayer?.play()
                                 viewModel.setIsPlaying(!isPlaying)

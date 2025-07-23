@@ -12,10 +12,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.vlc.R
 import com.example.vlc.player.config.PlayerConfig
 import com.example.vlc.player.config.PlayerLabels
 import com.example.vlc.player.config.VideoItem
 import com.example.vlc.player.WizardVideoPlayer
+import com.example.vlc.player.config.BorderType
+import com.example.vlc.player.config.FontSize
+import com.example.vlc.player.config.VideoSizePreference
 import com.example.vlc.ui.theme.VLCTheme
 
 class MainActivity : ComponentActivity() {
@@ -54,10 +58,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
 @Composable
 fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
     var currentId by remember { mutableStateOf("") }
     val ids = remember { mutableStateListOf<String>() }
+    var isPoorCpuMode by remember { mutableStateOf(true) } // Switch ON by default
 
     Box(
         modifier = Modifier
@@ -76,7 +82,6 @@ fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-
                 OutlinedTextField(
                     value = currentId,
                     onValueChange = { currentId = it },
@@ -90,7 +95,6 @@ fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Lista horizontal de capítulos agregados
                     if (ids.isNotEmpty()) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -119,11 +123,25 @@ fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
                         Text("Agregar")
                     }
                 }
+
+                // Switch debajo del botón "Agregar"
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("POORCPU")
+                    Switch(
+                        checked = isPoorCpuMode,
+                        onCheckedChange = { isPoorCpuMode = it }
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.weight(1f)) // empuja el botón de abajo solo si hay espacio libre
+            Spacer(modifier = Modifier.weight(1f))
 
-            // Botón final
             Button(
                 onClick = {
                     if (ids.isNotEmpty()) {
@@ -134,19 +152,51 @@ fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
                                 url = "http://161.97.128.152:80/movie/test777/test777/$id.mkv",
                                 season = 1,
                                 episodeNumber = id.toInt(),
-                                lastSecondView = 0,
-                                hasExternalSubtitles = id.toInt() == 63
+                                lastSecondView = if (id.toInt() == 63) 2000 else 0
                             )
                         }
 
                         val config = PlayerConfig(
                             videoItems = videoItems,
-                            startEpisodeNumber = 27,
+
+                            // -- UI Colors --
+                            primaryColor = 0xFF5C7EE9.toInt(),
+                            focusColor = 0xFFFFFFFF.toInt(),
+                            inactiveColor = 0xFF888888.toInt(),
+
+                            // -- UI Sizes --
+                            diameterButtonCircleDp = 48,
                             iconSizeDp = 32,
+
+                            // -- UI Controls Visibility --
                             showSubtitleButton = true,
                             showAudioButton = true,
                             showAspectRatioButton = true,
-                            autoPlay = true
+
+                            // -- Playback Behavior --
+                            autoPlay = true,
+                            startEpisodeNumber = null,
+
+                            // -- Language & Subtitle Preferences --
+                            preferenceLanguage = "en",
+                            preferenceSubtitle = "es",
+
+                            // -- Video Display Settings --
+                            preferenceVideoSize = VideoSizePreference.AUTOFIT,
+
+                            // -- Watermark & Branding --
+                            watermarkResId = R.drawable.icononly_transparent_nobuffer,
+                            showWatermark = true,
+                            brandingSize = 48,
+
+                            // -- Resume Playback Settings --
+                            playbackProgress = 180_000,
+
+                            // -- Subtitle Styling --
+                            fontSize = if (isPoorCpuMode) FontSize.SMALL else FontSize.MEDIUM,
+                            borderType = if (isPoorCpuMode) BorderType.NONE else BorderType.NORMAL,
+                            hasShadowText = !isPoorCpuMode,
+                            textColor = 0xffffff
                         )
 
                         onStartPlayer(config)
@@ -154,7 +204,7 @@ fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp) // ⛑️ asegura altura fija para que no se achique
+                    .height(56.dp)
             ) {
                 Text("▶ Reproducir todos los capítulos")
             }

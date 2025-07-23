@@ -6,8 +6,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.focus.FocusRequester
+
 import com.example.vlc.player.config.VideoItem
 import com.example.vlc.player.config.Config.createLibVlcConfig
+import com.example.vlc.player.config.PlayerConfig
 import com.example.vlc.utils.AppLogger
 import com.example.vlc.utils.NetworkMonitor
 import com.example.vlc.viewmodel.VideoViewModel
@@ -66,8 +68,9 @@ fun HandleNetworkMonitor(context: Context) {
 
 @Composable
 fun HandleMediaPlayerReinit(
-    currentItem: VideoItem?,
     context: Context,
+    config: PlayerConfig,
+    currentItem: VideoItem?,
     mediaPlayer: MediaPlayer?,
     libVLC: LibVLC?,
     setMediaPlayer: (MediaPlayer?) -> Unit,
@@ -83,7 +86,7 @@ fun HandleMediaPlayerReinit(
 
                 delay(100)
 
-                val options = createLibVlcConfig()
+                val options = createLibVlcConfig(config)
                 val newLib = LibVLC(context, options)
                 val newPlayer = MediaPlayer(newLib)
 
@@ -91,6 +94,8 @@ fun HandleMediaPlayerReinit(
                 setMediaPlayer(newPlayer)
                 viewModel.mediaPlayer = newPlayer
                 viewModel.prepareVideoUrl(item.url)
+                viewModel.resetPlaybackTime()
+                viewModel.mediaPlayer.position = 0f
 
                 AppLogger.info("HandleMediaPlayerReinit", "Media player reinitialized for ${item.title}")
             } catch (e: Exception) {

@@ -84,7 +84,7 @@ fun WizardPlayerView(
                 val width = displayMetrics.widthPixels
                 val height = displayMetrics.heightPixels
 
-                applyAspectRatio(mediaPlayer, config.preferenceVideoSize) {
+                applyAspectRatio(mediaPlayer, config.preferenceVideoSize.value) {
                     onAspectRatioChanged?.invoke(it)
                 }
 

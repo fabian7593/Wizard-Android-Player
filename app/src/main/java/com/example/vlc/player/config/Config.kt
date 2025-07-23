@@ -6,38 +6,82 @@ import org.videolan.libvlc.MediaPlayer
 object Config {
 
     val SHOW_LOGS = true
+    fun createLibVlcConfig(config: PlayerConfig): ArrayList<String> {
 
-    fun createLibVlcConfig(): ArrayList<String> {
-        return arrayListOf(
-            "--avcodec-fast",
-            "--avcodec-hw=mediacodec",
-            "--codec=avcodec",
+        val vlcOptions = arrayListOf(
+            // -- DECODING ENGINE OPTIONS --
+            "--codec=mediacodec_ndk",               // Use modern Android NDK hardware decoder (Android 9+)
 
-            "--file-caching=3500",
-            "--network-caching=7777",
+            // -- CACHING (BUFFERING) SETTINGS --
+            "--file-caching=3500",                  // Local file buffering time in ms
+            "--network-caching=7777",               // Network stream buffering time in ms
 
-            "--drop-late-frames",
-            "--skip-frames",
+            // -- FRAME DROP FOR PERFORMANCE --
+            "--drop-late-frames",                   // Drop late frames to maintain sync
+            "--skip-frames",                        // Skip frames if decoding is too slow
 
-            "--clock-jitter=500",
-            "--no-osd",
-            "--no-video-title-show",
+            // -- CLOCK & TIMING OPTIONS --
+            "--clock-jitter=500",                   // Synchronization clock jitter tolerance in ms
 
-            "--sub-filter=marq",                // Usa subtítulos simplificados
-            "--freetype-rel-fontsize=20",         // Tamaño relativo de fuente
-            "--freetype-outline-thickness=1",     // Grosor del borde para legibilidad
-            "--freetype-color=0xffffff",        // Blanco
-            "--freetype-shadow-opacity=0",
-            "--sub-fps=3",
+            // -- UI & DISPLAY CLEANUP --
+            "--no-osd",                             // Disable on-screen display (e.g. volume indicator)
+            "--no-video-title-show",                // Prevent video title from displaying on playback start
+
+            // -- SUBTITLE RENDERING ENGINE --
+            "--sub-filter=marq",                    // Use lightweight subtitle rendering engine
+            "--sub-fps=3",                          // Subtitle rendering frame rate to reduce CPU usage
+
+
+            // -- COLOR RENDERING OPTIMIZATIONS --
+            "--dither-algo=-1",                     // Disable dithering to improve color rendering performance
+            "--tone-mapping=0",                     // Disable tone mapping (no HDR adjustments)
+
+            // -- SUBTITLE OVERLAP & TIMING CONTROL --
+            "--subsdelay-mode=0",                   // Use absolute delay mode for subtitles (simpler logic)
+            "--subsdelay-factor=0.0",               // No additional delay factor
+            "--subsdelay-overlap=1",                // Max 1 subtitle displayed at a time
+            "--subsdelay-min-alpha=255",            // Force full alpha (visibility) for first subtitle in overlap
+
+            // -- PREFETCH BUFFERING --
+            "--prefetch-buffer-size=64",            // Prefetch buffer size in KiB (reduce lag on slow I/O)
+            "--prefetch-read-size=65536",           // Prefetch read block size (64 KB)
+            "--prefetch-seek-threshold=1048576",    // Prefetch seek threshold (1MB)
+
+            // -- AUDIO OPTIMIZATIONS --
+            "--no-audio-time-stretch",              // Avoid pitch correction when changing speed (less CPU)
+
+            // -- UNUSED OR EXPERIMENTAL OPTIONS (currently disabled due to compatibility issues) --
+            // "--avcodec-fast",                    // Try fast decoding mode (may crash on some devices)
+            // "--avcodec-hw=mediacodec",           // Explicitly use MediaCodec HW acceleration (conflicts in some setups)
+            // "--codec=avcodec",                   // Use FFmpeg-based decoder instead of NDK (less efficient on Android)
+            // "--freetype-spacing=0",              // Adjust inter-character spacing (not used)
+            // "--freetype-monospaced",             // Force monospace font (not necessary)
+            // "--effect-list=dummy",               // Disable audio visualizations (spectrum, etc.)
+            // "--no-equalizer",                    // Disable audio equalizer (only needed if EQ was active)
+
+            // -- FREETYPE FONT CONFIGURATION FOR SUBTITLES --
+           /* "--freetype-rel-fontsize=20",           // Relative font size (based on video height)
+            "--freetype-outline-thickness=1",       // Subtitle font outline thickness for readability
+            "--freetype-color=0xffffff",            // Subtitle font color (white)
+            "--freetype-background-opacity=0",      // Background box opacity (0 = none)
+            "--freetype-shadow-opacity=0",          // Shadow opacity (0 = none)
+            "--freetype-opacity=225",               // Subtitle font opacity (0-255, higher = more visible)
+            "--freetype-font=Arial",                // Use Arial as subtitle font (fallback to default if unavailable)
+            */
         )
+
+        val subtitleStyleOptions = buildSubtitleRenderingOptions(config)
+        vlcOptions.addAll(subtitleStyleOptions)
+
+        return vlcOptions
     }
 
     val AspectRatioOptions = listOf(
-        "autofit" to "Auto Fit",
-        "fill" to "Fill",
-        "cinematic" to "Cinematic",
-        "16:9" to "16:9",
-        "4:3" to "4:3"
+        VideoSizePreference.AUTOFIT.value to "Auto Fit",
+        VideoSizePreference.FILL.value to "Fill",
+        VideoSizePreference.CINEMATIC.value to "Cinematic",
+        VideoSizePreference.RATIO_16_9.value to "16:9",
+        VideoSizePreference.RATIO_4_3.value to "4:3"
     )
 
 
@@ -54,40 +98,79 @@ object Config {
     ) {
         try {
             when (aspectRatio.lowercase()) {
-                "autofit" -> {
+                VideoSizePreference.AUTOFIT.value -> {
                     mediaPlayer?.aspectRatio = ""
                     mediaPlayer?.scale = 0f
-                    onApplied?.invoke("autofit")
+                    onApplied?.invoke(VideoSizePreference.AUTOFIT.value)
                 }
-                "fill" -> {
+                VideoSizePreference.FILL.value -> {
                     mediaPlayer?.aspectRatio = "21:9"
                     mediaPlayer?.scale = 1f
                     mediaPlayer?.videoScale = MediaPlayer.ScaleType.SURFACE_FILL
-                    onApplied?.invoke("fill")
+                    onApplied?.invoke(VideoSizePreference.FILL.value)
                 }
-                "cinematic" -> {
+                VideoSizePreference.CINEMATIC.value -> {
                     mediaPlayer?.aspectRatio = "2:1"
                     mediaPlayer?.scale = 0f
-                    onApplied?.invoke("cinematic")
+                    onApplied?.invoke(VideoSizePreference.CINEMATIC.value)
                 }
-                "16:9" -> {
+                VideoSizePreference.RATIO_16_9.value -> {
                     mediaPlayer?.aspectRatio = "16:9"
                     mediaPlayer?.scale = 0f
-                    onApplied?.invoke("16:9")
+                    onApplied?.invoke(VideoSizePreference.RATIO_16_9.value)
                 }
-                "4:3" -> {
+                VideoSizePreference.RATIO_4_3.value -> {
                     mediaPlayer?.aspectRatio = "4:3"
                     mediaPlayer?.scale = 0f
-                    onApplied?.invoke("4:3")
+                    onApplied?.invoke(VideoSizePreference.RATIO_4_3.value)
                 }
                 else -> {
                     mediaPlayer?.aspectRatio = ""
                     mediaPlayer?.scale = 0f
-                    onApplied?.invoke("autofit")
+                    onApplied?.invoke(VideoSizePreference.AUTOFIT.value)
                 }
             }
         } catch (e: Exception) {
             AppLogger.error("Config", "❌ Error applying aspect ratio: ${e.message}")
         }
     }
+
+
+
+    fun buildSubtitleRenderingOptions(config: PlayerConfig): List<String> {
+        val options = mutableListOf<String>()
+
+        // -- FONT SIZE LOGIC --
+        val fontSizeValue = when (config.fontSize) {
+            FontSize.SMALL -> 22
+
+            FontSize.MEDIUM -> 19
+            FontSize.HIGH -> 16
+        }
+        options += "--freetype-rel-fontsize=$fontSizeValue"
+
+        // -- BORDER OUTLINE THICKNESS --
+        val outlineThickness = when (config.borderType) {
+            BorderType.NONE -> 0
+            BorderType.BASIC -> 1
+            BorderType.NORMAL -> 2
+        }
+        options += "--freetype-outline-thickness=$outlineThickness"
+
+        // -- SHADOW OPACITY --
+        val shadowOpacity = if (config.hasShadowText) 80 else 0
+        options += "--freetype-shadow-opacity=$shadowOpacity"
+
+        // -- FONT COLOR --
+        val hexColor = String.format("0x%06x", config.textColor)
+        options += "--freetype-color=$hexColor"
+
+        // -- DEFAULTS THAT REMAIN CONSTANT --
+        options += "--freetype-background-opacity=0"
+        options += "--freetype-opacity=225"
+        options += "--freetype-font=Arial"
+
+        return options
+    }
+
 }
