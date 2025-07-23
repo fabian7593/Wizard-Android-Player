@@ -12,11 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.vlc.player.PlayerConfig
-import com.example.vlc.player.PlayerLabels
-import com.example.vlc.player.VideoItem
+import com.example.vlc.player.config.PlayerConfig
+import com.example.vlc.player.config.PlayerLabels
+import com.example.vlc.player.config.VideoItem
 import com.example.vlc.player.WizardVideoPlayer
-import androidx.core.view.ViewCompat
 import com.example.vlc.ui.theme.VLCTheme
 
 class MainActivity : ComponentActivity() {

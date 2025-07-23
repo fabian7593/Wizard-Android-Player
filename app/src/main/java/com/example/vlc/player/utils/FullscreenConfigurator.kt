@@ -1,4 +1,4 @@
-package com.example.vlc.player.composable
+package com.example.vlc.player.utils
 
 import android.app.Activity
 import android.content.Context

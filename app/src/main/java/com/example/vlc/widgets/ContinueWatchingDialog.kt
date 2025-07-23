@@ -15,7 +15,7 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import com.example.vlc.player.PlayerLabels
+import com.example.vlc.player.config.PlayerLabels
 
 /**
  * Dialog that asks the user whether to continue watching or restart the episode.

@@ -1,14 +1,9 @@
 package com.example.vlc.player
 
-import com.example.vlc.R
-import android.view.KeyEvent
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,19 +14,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.example.vlc.player.composable.SetupFullscreenLandscape
+import com.example.vlc.player.gesture.HandleBackPress
+import com.example.vlc.player.handler.HandleConnectionLoss
+import com.example.vlc.player.handler.HandleExitRequest
+import com.example.vlc.player.handler.HandleMediaPlayerReinit
+import com.example.vlc.player.handler.HandlePlayerCleanup
+import com.example.vlc.player.handler.HandleResumePlayback
+import com.example.vlc.player.handler.ReportCurrentPlaybackStatus
+import com.example.vlc.player.utils.SetupFullscreenLandscape
 import com.example.vlc.player.composable.ToastAnimatedVisibility
-import com.example.vlc.player.composable.handlePlayerGestures
+import com.example.vlc.player.composable.WatermarkBranding
+import com.example.vlc.player.config.PlayerConfig
+import com.example.vlc.player.config.PlayerLabels
+import com.example.vlc.player.config.VideoItem
+import com.example.vlc.player.gesture.handlePlayerGestures
+import com.example.vlc.player.handler.HandleNetworkMonitor
 import com.example.vlc.player.surface.WizardPlayerView
-import com.example.vlc.utils.Config.AspectRatioOptions
-import com.example.vlc.utils.Config.applyAspectRatio
-import com.example.vlc.utils.Config.createLibVlcConfig
+import com.example.vlc.player.utils.playNextOrExit
+import com.example.vlc.player.config.Config.AspectRatioOptions
+import com.example.vlc.player.config.Config.applyAspectRatio
 
 import com.example.vlc.utils.GeneralUtils
 import com.example.vlc.utils.LanguageMatcher
@@ -42,9 +45,6 @@ import com.example.vlc.widgets.ContinueWatchingDialog
 import com.example.vlc.widgets.CustomVideoSlider
 import com.example.vlc.widgets.ScrollableDialogList
 import com.example.vlc.widgets.TvIconButton
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.MediaPlayer
 
@@ -63,21 +63,18 @@ fun WizardVideoPlayer(
     onGetCurrentItem: (VideoItem?) -> Unit,
     onExit: () -> Unit
 ) {
-
     val context = LocalContext.current
     SetupFullscreenLandscape(context)
 
     // ───────────────────────────────────────────────────────
     // 🎞️ VLC engine and media player setup
     // ───────────────────────────────────────────────────────
-
     var libVLC by remember { mutableStateOf<LibVLC?>(null) }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
     // ───────────────────────────────────────────────────────
     // 🔁 State and UI holders
     // ───────────────────────────────────────────────────────
-
     // Used to request focus for the play/pause button (especially important on Android TV).
     val playFocusRequester = remember { FocusRequester() }
 
@@ -164,128 +161,62 @@ fun WizardVideoPlayer(
     //Show the dialog of continue episode or reset
     val showContinueDialog = remember { mutableStateOf(false) }
 
-
-    fun playNextOrExit() {
-        if(config.autoPlay){
-            if (currentIndex.value < config.videoItems.lastIndex) {
-                currentIndex.value += 1
-            } else {
-                onGetCurrentTime(currentTime)
-                onExit()
-            }
-        }else{
-            onGetCurrentTime(currentTime)
-            onExit()
-        }
-    }
-
     // ───────────────────────────────────────────────────────
     // Validate Internet Connection
     // ───────────────────────────────────────────────────────
     val coroutineScope = rememberCoroutineScope()
-    val latestCurrentItem by rememberUpdatedState(currentItem)
 
-    // Start network monitor once
-    LaunchedEffect(Unit) {
-        NetworkMonitor.start(context)
-    }
+    //change the player to new video
+    HandleMediaPlayerReinit(
+        currentItem = currentItem,
+        context = context,
+        mediaPlayer = mediaPlayer,
+        libVLC = libVLC,
+        setMediaPlayer = { mediaPlayer = it },
+        setLibVLC = { libVLC = it },
+        viewModel = viewModel
+    )
+    //get current item and get current time
+    ReportCurrentPlaybackStatus(
+        currentItem = currentItem,
+        currentTime = currentTime,
+        onGetCurrentTime = onGetCurrentTime,
+        onGetCurrentItem = onGetCurrentItem
+    )
 
-    // Handle connectivity, media reinitialization, exit, and playback time
-    LaunchedEffect(isConnected, currentItem, shouldExitApp) {
-        // Handle connection loss
-        if (!isConnected) {
-            coroutineScope.launch(Dispatchers.IO) {
-                mediaPlayer?.pause()
-                viewModel.setIsPlaying(false)
-            }
-            showConnectionWarning.value = true
-            delay(3000)
-            showConnectionWarning.value = false
-            return@LaunchedEffect
-        }
+    //INTERNET
+    //Network Monitor
+    HandleNetworkMonitor(context)
+    //Reconnect when get internet
+    HandleResumePlayback(
+        isConnected = isConnected,
+        currentItem = currentItem,
+        mediaPlayer = mediaPlayer,
+        viewModel = viewModel,
+        coroutineScope = coroutineScope
+    )
+    //Show toast when the connection is loss
+    HandleConnectionLoss(
+        isConnected = isConnected,
+        coroutineScope = coroutineScope,
+        mediaPlayer = mediaPlayer,
+        viewModel = viewModel,
+        showConnectionWarning = showConnectionWarning
+    )
 
-        // Reinitialize VLC player with new video item
-        currentItem?.let { item ->
-            try {
-                mediaPlayer?.stop()
-                mediaPlayer?.release()
-                libVLC?.release()
-
-                val options = createLibVlcConfig()
-                libVLC = LibVLC(context, options)
-                val newPlayer = MediaPlayer(libVLC)
-                mediaPlayer = newPlayer
-                viewModel.mediaPlayer = newPlayer
-                viewModel.prepareVideoUrl(item.url)
-
-            } catch (e: Exception) {
-                println("Error switching media player: ${e.message}")
-            }
-        }
-
-        // Resume playback if needed
-        if (!viewModel.isPlaying.value) {
-            coroutineScope.launch(Dispatchers.IO) {
-                mediaPlayer?.play()
-                viewModel.setIsPlaying(true)
-            }
-        }
-
-        // Handle exit
-        if (shouldExitApp) {
-            onGetCurrentTime(currentTime)
-            onExit()
-        }
-
-        // Report current video info
-        onGetCurrentTime(currentTime)
-        onGetCurrentItem(currentItem)
-    }
-
-    // UI control visibility logic
-    LaunchedEffect(showControls) {
-        if (showControls) {
-            delay(200)
-            playFocusRequester.requestFocus()
-        } else {
-            showAudioDialog.value = false
-            showSubtitlesDialog = false
-            showAspectRatioDialog = false
-            showContinueDialog.value = false
-        }
-    }
-
-    // Background timer to report playback progress every 3 minutes
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(config.playbackProgress)
-            onGetCurrentTime(currentTime)
-            onGetCurrentItem(latestCurrentItem)
-        }
-    }
-
+    //Press back button
+    //get the time and close
+    HandleExitRequest(
+        shouldExitApp = shouldExitApp,
+        currentTime = currentTime,
+        onExit = onExit,
+        onGetCurrentTime = onGetCurrentTime
+    )
     // Handle back button behavior
-    BackHandler {
-        if (viewModel.showControls.value) {
-            viewModel.toggleControls(false)
-        } else {
-            viewModel.requestExit()
-        }
-    }
+    HandleBackPress(viewModel)
 
-    // Cleanup logic when Composable leaves the composition
-    DisposableEffect(Unit) {
-        onDispose {
-            try {
-                viewModel.disposePlayer()
-                libVLC?.release()
-            } catch (e: Exception) {
-                println("Cleanup error: ${e.message}")
-            }
-        }
-    }
-
-
+    // Similar to Garbage Collector
+    HandlePlayerCleanup(viewModel, libVLC)
 
     // ───────────────────────────────────────────────────────
     // 🧱 Main player container with interactions
@@ -303,8 +234,6 @@ fun WizardVideoPlayer(
                 onExit = { viewModel.requestExit() }
             )
     ) {
-
-
         // ───── Video Background ─────
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             if (videoUrl.isNotEmpty() && mediaPlayer != null) {
@@ -334,7 +263,15 @@ fun WizardVideoPlayer(
                             val effectiveBuffering = it || !isConnected
                             viewModel.onBufferingChanged(effectiveBuffering)
                         },
-                        onEndReached = { playNextOrExit() },
+                        onEndReached = {
+                            playNextOrExit(
+                                config = config,
+                                currentIndex = currentIndex,
+                                currentTime = currentTime,
+                                onGetCurrentTime = onGetCurrentTime,
+                                onExit = onExit
+                            )
+                        },
                         onDurationChanged = { viewModel.onDurationChanged(it) },
                         onStart = {
                             currentItem?.lastSecondView?.toLong()?.takeIf { it > 0 }?.let {
@@ -519,26 +456,6 @@ fun WizardVideoPlayer(
             }
         }
 
-
-        // ───── Watermark Branding ─────
-        AnimatedVisibility(
-            visible = !showControls && config.showWatermark,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 24.dp, bottom = 24.dp)
-        ) {
-            Icon(
-                painter = painterResource(id = config.watermarkResId ?: R.drawable.icononly_transparent_nobuffer),
-                contentDescription = "App branding",
-                tint = Color.Unspecified, // mantiene color original si es PNG/SVG
-                modifier = Modifier
-                    .size((config.brandingSize ?: 48).dp)
-                    .graphicsLayer(alpha = 0.8f)// ajustable según tu logo
-            )
-        }
-
         // ───── Audio / Subtitle / Aspect Dialogs ─────
         if (showAudioDialog.value) {
             ScrollableDialogList(
@@ -593,22 +510,6 @@ fun WizardVideoPlayer(
             )
         }
 
-
-        // ───── Exit Prompt (double back) ─────
-        ToastAnimatedVisibility(isVisible = showExitPrompt,
-            text = labels.exitPrompt,
-            modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 32.dp))
-
-
-        // ⚡ Internet connection warning
-        ToastAnimatedVisibility(isVisible = showConnectionWarning.value,
-                                text = labels.errorConnectionMessage,
-                                modifier = Modifier
-                                            .align(Alignment.BottomCenter)
-                                            .padding(bottom = 32.dp))
-
         //Open the dialog of continue watching
         if (showContinueDialog.value) {
             ContinueWatchingDialog(
@@ -631,6 +532,28 @@ fun WizardVideoPlayer(
                 }
             )
         }
+
+        // ───── Watermark Branding ─────
+        WatermarkBranding(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 24.dp, bottom = 24.dp),
+            config = config,
+            showControls = showControls
+        )
+
+        // ───── Exit Prompt (double back) ─────
+        ToastAnimatedVisibility(isVisible = showExitPrompt,
+            text = labels.exitPrompt,
+            modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp))
+
+        // ⚡ Internet connection warning
+        ToastAnimatedVisibility(isVisible = showConnectionWarning.value,
+                                text = labels.errorConnectionMessage,
+                                modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .padding(bottom = 32.dp))
     }
 }
-

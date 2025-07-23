@@ -1,9 +1,11 @@
-package com.example.vlc.player.composable
+package com.example.vlc.player.gesture
 
 import android.view.KeyEvent
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import com.example.vlc.viewmodel.VideoViewModel
@@ -72,4 +74,16 @@ fun Modifier.handlePlayerGestures(
             }
         }
         .focusable()
+}
+
+
+@Composable
+fun HandleBackPress(viewModel: VideoViewModel) {
+    BackHandler {
+        if (viewModel.showControls.value) {
+            viewModel.toggleControls(false)
+        } else {
+            viewModel.requestExit()
+        }
+    }
 }

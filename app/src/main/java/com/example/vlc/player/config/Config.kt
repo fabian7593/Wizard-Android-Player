@@ -1,4 +1,4 @@
-package com.example.vlc.utils
+package com.example.vlc.player.config
 
 import org.videolan.libvlc.MediaPlayer
 

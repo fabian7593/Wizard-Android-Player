@@ -1,7 +1,7 @@
-package com.example.vlc.player
+package com.example.vlc.player.config
 import kotlinx.parcelize.Parcelize
 import android.os.Parcelable
-import org.videolan.libvlc.MediaPlayer
+import com.example.vlc.R
 
 @Parcelize
 data class PlayerConfig(
@@ -19,7 +19,7 @@ data class PlayerConfig(
     val preferenceLanguage: String = "en", //es, es-es, es-mx, en, fr, pt, de, it, ja, ko, zh
     val preferenceSubtitle: String = "es", //es, es-es, es-mx, en, fr, pt, de, it, ja, ko, zh
     val preferenceVideoSize: String = "autofit", //autofit, fill, cinematic, 16:9, 4:3
-    val watermarkResId: Int? = null,
+    val watermarkResId: Int? = R.drawable.icononly_transparent_nobuffer,
     val showWatermark: Boolean = true,
     val brandingSize: Int? = null,
     val playbackProgress: Long = 180_000 // 3 minute by playbackl progress
