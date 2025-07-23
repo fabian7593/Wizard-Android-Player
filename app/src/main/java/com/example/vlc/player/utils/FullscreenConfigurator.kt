@@ -9,6 +9,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.example.vlc.utils.AppLogger
 
 @Composable
 fun SetupFullscreenLandscape(context: Context) {
@@ -26,7 +27,7 @@ fun SetupFullscreenLandscape(context: Context) {
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
         } catch (e: Exception) {
-            println("⚠️ Error configuring fullscreen landscape mode: ${e.message}")
+            AppLogger.warning("FullscreenUtils", "⚠️ Error configuring fullscreen landscape mode: ${e.message}")
         }
     }
 }

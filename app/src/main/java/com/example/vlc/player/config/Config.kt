@@ -1,8 +1,11 @@
 package com.example.vlc.player.config
 
+import com.example.vlc.utils.AppLogger
 import org.videolan.libvlc.MediaPlayer
 
 object Config {
+
+    val SHOW_LOGS = true
 
     fun createLibVlcConfig(): ArrayList<String> {
         return arrayListOf(
@@ -82,7 +85,7 @@ object Config {
                 }
             }
         } catch (e: Exception) {
-            println("❌ Error applying aspect ratio: ${e.message}")
+            AppLogger.error("Config", "❌ Error applying aspect ratio: ${e.message}")
         }
     }
 }

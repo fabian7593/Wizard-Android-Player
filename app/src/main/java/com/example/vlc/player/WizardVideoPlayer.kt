@@ -36,6 +36,7 @@ import com.example.vlc.player.config.Config.AspectRatioOptions
 import com.example.vlc.player.config.Config.applyAspectRatio
 import com.example.vlc.player.gesture.HandleBackPressVisibleControls
 import com.example.vlc.player.handler.HandleInitialFocus
+import com.example.vlc.utils.AppLogger
 
 import com.example.vlc.utils.GeneralUtils
 import com.example.vlc.utils.LanguageMatcher
@@ -162,6 +163,9 @@ fun WizardVideoPlayer(
     //Show the dialog of continue episode or reset
     val showContinueDialog = remember { mutableStateOf(false) }
 
+    val TAG = "WizardVideoPlayer"
+
+
     // ───────────────────────────────────────────────────────
     // Validate Internet Connection
     // ───────────────────────────────────────────────────────
@@ -182,7 +186,8 @@ fun WizardVideoPlayer(
         currentItem = currentItem,
         currentTime = currentTime,
         onGetCurrentTime = onGetCurrentTime,
-        onGetCurrentItem = onGetCurrentItem
+        onGetCurrentItem = onGetCurrentItem,
+        intervalMillis = config.playbackProgress
     )
 
     //Network Monitor
@@ -237,8 +242,7 @@ fun WizardVideoPlayer(
                 videoUrl = videoUrl,
                 showControls = showControls,
                 viewModel = viewModel,
-                mediaPlayer = mediaPlayer,
-                onExit = { viewModel.requestExit() }
+                mediaPlayer = mediaPlayer
             )
     ) {
         // ───── Video Background ─────
@@ -328,7 +332,7 @@ fun WizardVideoPlayer(
                                     isPlayFocused.value = true
                                     playFocusRequester.requestFocus()
                                 } catch (e: Exception) {
-                                    println("⚠️ Failed to switch video: ${e.message}")
+                                    AppLogger.warning(TAG, "⚠️ Failed to switch video: ${e.message}")
                                 }
                             },
                             activeColor = Color(config.primaryColor),
@@ -385,7 +389,7 @@ fun WizardVideoPlayer(
                                 viewModel.setIsPlaying(!isPlaying)
                                 viewModel.toggleControls(true)
                             } catch (e: Exception) {
-                                println("❌ Playback toggle failed: ${e.message}")
+                                AppLogger.error(TAG, "❌ Playback toggle failed: ${e.message}")
                             }
                         },
                         focusRequester = playFocusRequester,

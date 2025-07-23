@@ -8,6 +8,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.ui.focus.FocusRequester
 import com.example.vlc.player.config.VideoItem
 import com.example.vlc.player.config.Config.createLibVlcConfig
+import com.example.vlc.utils.AppLogger
 import com.example.vlc.utils.NetworkMonitor
 import com.example.vlc.viewmodel.VideoViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -28,7 +29,7 @@ fun HandlePlayerCleanup(
                 viewModel.disposePlayer()
                 libVLC?.release()
             } catch (e: Exception) {
-                println("Cleanup error: ${e.message}")
+                AppLogger.error("HandlePlayerCleanup", "Cleanup error: ${e.message}")
             }
         }
     }
@@ -59,6 +60,7 @@ fun HandleConnectionLoss(
 fun HandleNetworkMonitor(context: Context) {
     LaunchedEffect(Unit) {
         NetworkMonitor.start(context)
+        AppLogger.debug("HandleNetworkMonitor", "Started monitoring network")
     }
 }
 
@@ -88,8 +90,9 @@ fun HandleMediaPlayerReinit(
                 viewModel.mediaPlayer = newPlayer
                 viewModel.prepareVideoUrl(item.url)
 
+                AppLogger.info("HandleMediaPlayerReinit", "Media player reinitialized for ${item.title}")
             } catch (e: Exception) {
-                println("⚠️ Error switching media player: ${e.message}")
+                AppLogger.error("HandleMediaPlayerReinit", "⚠️ Error switching media player: ${e.message}")
             }
         }
     }
@@ -109,8 +112,9 @@ fun HandleResumePlayback(
                 try {
                     mediaPlayer?.play()
                     viewModel.setIsPlaying(true)
+                    AppLogger.debug("HandleResumePlayback", "Playback resumed")
                 } catch (e: Exception) {
-                    println("❌ Resume playback error: ${e.message}")
+                    AppLogger.error("HandleResumePlayback", "❌ Resume playback error: ${e.message}")
                 }
             }
         }
@@ -128,6 +132,7 @@ fun HandleExitRequest(
         if (shouldExitApp) {
             onGetCurrentTime(currentTime)
             onExit()
+            AppLogger.info("HandleExitRequest", "Exit requested at $currentTime")
         }
     }
 }
@@ -137,11 +142,16 @@ fun ReportCurrentPlaybackStatus(
     currentItem: VideoItem?,
     currentTime: Long,
     onGetCurrentTime: (Long) -> Unit,
-    onGetCurrentItem: (VideoItem?) -> Unit
+    onGetCurrentItem: (VideoItem?) -> Unit,
+    intervalMillis: Long = 180_000L
 ) {
-    LaunchedEffect(currentItem, currentTime) {
-        onGetCurrentTime(currentTime)
-        onGetCurrentItem(currentItem)
+    LaunchedEffect(currentItem) {
+        while (true) {
+            onGetCurrentTime(currentTime)
+            onGetCurrentItem(currentItem)
+            AppLogger.debug("ReportPlayback", "Time: $currentTime | Item: ${currentItem?.title}")
+            delay(intervalMillis)
+        }
     }
 }
 
@@ -153,9 +163,8 @@ fun HandleInitialFocus(
 ) {
     LaunchedEffect(showControls) {
         if (showControls) {
-            delay(200) // necesario para que Compose termine la recomposición
+            delay(200)
             playFocusRequester.requestFocus()
         }
     }
 }
-

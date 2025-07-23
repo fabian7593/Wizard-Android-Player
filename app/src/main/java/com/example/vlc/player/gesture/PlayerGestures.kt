@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import com.example.vlc.utils.AppLogger
 import com.example.vlc.viewmodel.VideoViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,8 +20,7 @@ fun Modifier.handlePlayerGestures(
     videoUrl: String,
     showControls: Boolean,
     viewModel: VideoViewModel,
-    mediaPlayer: MediaPlayer?,
-    onExit: () -> Unit
+    mediaPlayer: MediaPlayer?
 ): Modifier {
     return this
         .pointerInput(isPlaying) {
@@ -41,7 +41,7 @@ fun Modifier.handlePlayerGestures(
                                     viewModel.setIsPlaying(true)
                                 }
                             } catch (e: Exception) {
-                                println("❌ Error toggling play/pause: ${e.message}")
+                                AppLogger.error("PlayerGestures", "❌ Error toggling play/pause: ${e.message}")
                             }
                         }
                     }

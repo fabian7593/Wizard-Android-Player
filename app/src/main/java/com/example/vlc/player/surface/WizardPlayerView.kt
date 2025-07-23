@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.vlc.player.config.PlayerConfig
 import com.example.vlc.player.config.Config.applyAspectRatio
+import com.example.vlc.utils.AppLogger
 import com.example.vlc.utils.GeneralUtils.shouldForceHWDecoding
 import com.example.vlc.utils.LanguageMatcher
 import kotlinx.coroutines.Dispatchers
@@ -56,7 +57,7 @@ fun WizardPlayerView(
                             mediaPlayer.vlcVout.detachViews()
                         }
                     } catch (e: Exception) {
-                        println("Error during surfaceDestroyed: ${e.message}")
+                        AppLogger.error("WizardPlayerView", "❌  Error during surfaceDestroyed: ${e.message}")
                     }
                 }
             })
@@ -69,7 +70,7 @@ fun WizardPlayerView(
                 mediaPlayer.vlcVout.detachViews()
                 mediaPlayer.setEventListener(null)
             } catch (e: Exception) {
-                println("❌ Error during VLC player release: ${e.message}")
+                AppLogger.error("WizardPlayerView", "❌  Error during VLC player release: ${e.message}")
             }
         }
     )
@@ -155,22 +156,22 @@ fun WizardPlayerView(
                                         }
 
                                     } catch (e: Exception) {
-                                        println("⚠️ Error loading media tracks: ${e.message}")
+                                        AppLogger.warning("WizardPlayerView", "⚠️ Error loading media tracks:")
                                     }
 
                             }
 
                             MediaPlayer.Event.EncounteredError -> {
-                                println("❌ Playback error encountered")
+                                AppLogger.error("WizardPlayerView", "❌ Playback error encountered")
                                 onBufferingChanged(false)
                             }
                         }
                     } catch (e: Exception) {
-                        println("❌ Error inside VLC event listener: ${e.message}")
+                        AppLogger.error("WizardPlayerView", "❌ Error inside VLC event listener: ${e.message}")
                     }
                 }
             } catch (e: Exception) {
-                println("❌ Error initializing VLC player: ${e.message}")
+                AppLogger.error("WizardPlayerView", "❌ Error initializing VLC player: ${e.message}")
             }
         }
     }

@@ -3,11 +3,14 @@ package com.example.vlc.viewmodel
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.vlc.utils.GeneralUtils.shouldForceHWDecoding
+import com.example.vlc.utils.AppLogger
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
@@ -17,7 +20,6 @@ class VideoViewModel : ViewModel() {
     // ───────────────────────────────────────────────────────────────
     // ▶ Playback State
     // ───────────────────────────────────────────────────────────────
-
     // Indicates whether the video is currently playing
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying
@@ -39,13 +41,11 @@ class VideoViewModel : ViewModel() {
 
     // Last known playback position in milliseconds
     private var lastKnownPosition: Long = 0
-
     private var recoveringFromFreeze = false
 
     // ───────────────────────────────────────────────────────────────
     // 👤 User Interaction State
     // ───────────────────────────────────────────────────────────────
-
     // Indicates whether the user is currently interacting with controls
     private val _isUserInteracting = MutableStateFlow(false)
     val isUserInteracting: StateFlow<Boolean> = _isUserInteracting.asStateFlow()
@@ -53,7 +53,6 @@ class VideoViewModel : ViewModel() {
     // ───────────────────────────────────────────────────────────────
     // 🎛 UI Controls Visibility
     // ───────────────────────────────────────────────────────────────
-
     // Whether the video controls are currently shown on screen
     private val _showControls = MutableStateFlow(true)
     val showControls: StateFlow<Boolean> = _showControls.asStateFlow()
@@ -72,7 +71,6 @@ class VideoViewModel : ViewModel() {
     // ───────────────────────────────────────────────────────────────
     // 🚪 App Exit Management (Double back press)
     // ───────────────────────────────────────────────────────────────
-
     // Timestamp of the last back press
     private var lastBackPressTime: Long = 0
 
@@ -87,20 +85,15 @@ class VideoViewModel : ViewModel() {
     // ───────────────────────────────────────────────────────────────
     // 🔁 INIT block - Setup Observers
     // ───────────────────────────────────────────────────────────────
-
     init {
         observeVideoPosition()
         detectFreeze()
         autoHideControlsWhenPlaying()
     }
 
-
-
-
     // ───────────────────────────────────────────────────────────────
     // 🎞 Load & Play Video
     // ───────────────────────────────────────────────────────────────
-
     fun prepareVideoUrl(url: String) {
         _videoUrl.value = url
     }
@@ -108,26 +101,30 @@ class VideoViewModel : ViewModel() {
     // ───────────────────────────────────────────────────────────────
     // 🕓 Track Playback Time
     // ───────────────────────────────────────────────────────────────
+    private var observeJob: Job? = null
 
     private fun observeVideoPosition() {
-        viewModelScope.launch {
-            while (true) {
+        observeJob?.cancel()
+        observeJob = viewModelScope.launch {
+            while (isActive) {
                 delay(1000)
                 try {
                     if (_isPlaying.value && !seeking) {
                         _currentTime.value = mediaPlayer.time / 1000
                     }
                 } catch (e: Exception) {
-                    //println("❌ Error getting playback time: ${e.message}")
+                    AppLogger.error("VideoViewModel", "❌ Error getting playback time: ${e.message}")
+                    cancel()
                 }
             }
         }
     }
 
+
+
     // ───────────────────────────────────────────────────────────────
     // 🧊 Detect Frozen Playback & Auto-Recover
-    // ───────────────────────────────────────────────────────────────
-
+    // ──────────────────────────────────────────────────────────────
     private fun detectFreeze() {
         viewModelScope.launch {
             while (true) {
@@ -153,14 +150,13 @@ class VideoViewModel : ViewModel() {
                         delay(300)
 
                         val media = Media(mediaPlayer.libVLC, Uri.parse(videoUrl.value))
-                        val forceHW = shouldForceHWDecoding()
-                        media.setHWDecoderEnabled(true, true)
+                        media.setHWDecoderEnabled(true, false)
                         mediaPlayer.media = media
                         media.release()
 
                         val vout = mediaPlayer.vlcVout
                         if (!vout.areViewsAttached()) {
-                            println("⚠️ SurfaceView not attached. Cannot play.")
+                            AppLogger.warning("VideoViewModel", "⚠️ SurfaceView not attached. Cannot play.")
                             recoveringFromFreeze = false
                             continue
                         }
@@ -181,35 +177,31 @@ class VideoViewModel : ViewModel() {
                     lastKnownPosition = current
 
                 } catch (e: Exception) {
-                    println("❌ Error in freeze recovery: ${e.message}")
+                    AppLogger.error("VideoViewModel", "❌ Error in freeze recovery: ${e.message}")
                     recoveringFromFreeze = false
                 }
             }
         }
     }
 
-
-
     // ───────────────────────────────────────────────────────────────
     // Delete player
     // ───────────────────────────────────────────────────────────────
     fun disposePlayer() {
         try {
-
+            observeJob?.cancel()
             mediaPlayer.stop()
             mediaPlayer.vlcVout.detachViews()
             mediaPlayer.setEventListener(null)
             mediaPlayer.release()
         } catch (e: Exception) {
-            println("🧹 Error disposing player: ${e.message}")
+            AppLogger.error("VideoViewModel", "Error disposing player: ${e.message}")
         }
     }
-
 
     // ───────────────────────────────────────────────────────────────
     // 🙈 Auto-Hide Controls After Inactivity
     // ───────────────────────────────────────────────────────────────
-
     fun autoHideControlsWhenPlaying() {
         viewModelScope.launch {
             while (true) {
@@ -227,7 +219,6 @@ class VideoViewModel : ViewModel() {
     // ───────────────────────────────────────────────────────────────
     // 🧑 User Interaction Tracking
     // ───────────────────────────────────────────────────────────────
-
     fun setUserInteracting(interacting: Boolean) {
         _isUserInteracting.value = interacting
     }
@@ -242,7 +233,6 @@ class VideoViewModel : ViewModel() {
     // ───────────────────────────────────────────────────────────────
     // 🎮 UI Controls State
     // ───────────────────────────────────────────────────────────────
-
     fun toggleControls(visible: Boolean = true) {
         _showControls.value = visible
     }
@@ -250,7 +240,6 @@ class VideoViewModel : ViewModel() {
     // ───────────────────────────────────────────────────────────────
     // 🔁 Playback Event Callbacks
     // ───────────────────────────────────────────────────────────────
-
     fun setIsPlaying(value: Boolean) {
         _isPlaying.value = value
     }
@@ -270,7 +259,6 @@ class VideoViewModel : ViewModel() {
     // ───────────────────────────────────────────────────────────────
     // ⏩ Seek Operations
     // ───────────────────────────────────────────────────────────────
-
     fun onSeekStart() {
         seeking = true
     }
@@ -285,16 +273,16 @@ class VideoViewModel : ViewModel() {
             val seekFraction = (safeSeek.toFloat() / _videoLength.value).coerceIn(0f, 0.95f)
             mediaPlayer.setPosition(seekFraction)
         } catch (e: Exception) {
-            println("❌ Error while seeking: ${e.message}")
+            AppLogger.error("VideoViewModel", "❌ Error while seeking: ${e.message}")
+
         } finally {
             seeking = false
         }
     }
 
     // ───────────────────────────────────────────────────────────────
-    // ❌ Exit App (Double Back Press)
+    //  Exit App (Double Back Press)
     // ───────────────────────────────────────────────────────────────
-
     fun requestExit() {
         val now = System.currentTimeMillis()
         if (now - lastBackPressTime < 2000) {
