@@ -241,7 +241,8 @@ fun WizardVideoPlayer(
                 videoUrl = videoUrl,
                 showControls = showControls,
                 viewModel = viewModel,
-                mediaPlayer = mediaPlayer
+                mediaPlayer = mediaPlayer,
+                isPlayButtonEnabled = videoUrl.isNotEmpty() && videoLength > 0 && isConnected,
             )
     ) {
         // ───── Video Background ─────
@@ -551,7 +552,7 @@ fun WizardVideoPlayer(
         WatermarkBranding(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 24.dp, bottom = 24.dp),
+                .padding(end = 12.dp, bottom = 12.dp),
             config = config,
             showControls = showControls
         )

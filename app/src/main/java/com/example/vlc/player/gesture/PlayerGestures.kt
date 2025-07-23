@@ -20,6 +20,7 @@ fun Modifier.handlePlayerGestures(
     videoUrl: String,
     showControls: Boolean,
     viewModel: VideoViewModel,
+    isPlayButtonEnabled: Boolean,
     mediaPlayer: MediaPlayer?
 ): Modifier {
     return this
@@ -29,6 +30,8 @@ fun Modifier.handlePlayerGestures(
                     viewModel.toggleControls(true)
                     viewModel.setUserInteracting(true)
                     viewModel.startUserInteractionTimeout()
+
+                    if (!isPlayButtonEnabled) return@detectTapGestures
 
                     if (showControls && videoUrl.isNotEmpty() && mediaPlayer != null) {
                         CoroutineScope(Dispatchers.IO).launch {
