@@ -58,7 +58,6 @@ fun Modifier.handlePlayerGestures(
                         viewModel.toggleControls(false)
                     } else {
                         viewModel.requestExit()
-                        onExit()
                     }
                     true
                 }
@@ -78,7 +77,7 @@ fun Modifier.handlePlayerGestures(
 
 
 @Composable
-fun HandleBackPress(viewModel: VideoViewModel) {
+fun HandleBackPressVisibleControls(viewModel: VideoViewModel) {
     BackHandler {
         if (viewModel.showControls.value) {
             viewModel.toggleControls(false)

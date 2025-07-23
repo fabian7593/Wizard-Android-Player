@@ -16,7 +16,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.example.vlc.player.gesture.HandleBackPress
 import com.example.vlc.player.handler.HandleConnectionLoss
 import com.example.vlc.player.handler.HandleExitRequest
 import com.example.vlc.player.handler.HandleMediaPlayerReinit
@@ -35,6 +34,8 @@ import com.example.vlc.player.surface.WizardPlayerView
 import com.example.vlc.player.utils.playNextOrExit
 import com.example.vlc.player.config.Config.AspectRatioOptions
 import com.example.vlc.player.config.Config.applyAspectRatio
+import com.example.vlc.player.gesture.HandleBackPressVisibleControls
+import com.example.vlc.player.handler.HandleInitialFocus
 
 import com.example.vlc.utils.GeneralUtils
 import com.example.vlc.utils.LanguageMatcher
@@ -184,7 +185,6 @@ fun WizardVideoPlayer(
         onGetCurrentItem = onGetCurrentItem
     )
 
-    //INTERNET
     //Network Monitor
     HandleNetworkMonitor(context)
     //Reconnect when get internet
@@ -213,7 +213,14 @@ fun WizardVideoPlayer(
         onGetCurrentTime = onGetCurrentTime
     )
     // Handle back button behavior
-    HandleBackPress(viewModel)
+    HandleBackPressVisibleControls(viewModel)
+
+    //focus when visible buttons are visible
+    HandleInitialFocus(
+        showControls = showControls,
+        playFocusRequester = playFocusRequester
+    )
+
 
     // Similar to Garbage Collector
     HandlePlayerCleanup(viewModel, libVLC)

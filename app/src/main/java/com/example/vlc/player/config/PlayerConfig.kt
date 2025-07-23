@@ -21,7 +21,7 @@ data class PlayerConfig(
     val preferenceVideoSize: String = "autofit", //autofit, fill, cinematic, 16:9, 4:3
     val watermarkResId: Int? = R.drawable.icononly_transparent_nobuffer,
     val showWatermark: Boolean = true,
-    val brandingSize: Int? = null,
+    val brandingSize: Int? = 32,
     val playbackProgress: Long = 180_000 // 3 minute by playbackl progress
 
 ) : Parcelable

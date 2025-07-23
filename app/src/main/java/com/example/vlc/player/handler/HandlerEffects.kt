@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.ui.focus.FocusRequester
 import com.example.vlc.player.config.VideoItem
 import com.example.vlc.player.config.Config.createLibVlcConfig
 import com.example.vlc.utils.NetworkMonitor
@@ -143,3 +144,18 @@ fun ReportCurrentPlaybackStatus(
         onGetCurrentItem(currentItem)
     }
 }
+
+
+@Composable
+fun HandleInitialFocus(
+    showControls: Boolean,
+    playFocusRequester: FocusRequester
+) {
+    LaunchedEffect(showControls) {
+        if (showControls) {
+            delay(200) // necesario para que Compose termine la recomposición
+            playFocusRequester.requestFocus()
+        }
+    }
+}
+
