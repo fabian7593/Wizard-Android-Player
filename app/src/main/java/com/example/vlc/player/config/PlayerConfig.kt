@@ -42,8 +42,8 @@ data class PlayerConfig(
     val playbackProgress: Long = 180_000,       // Resume progress (ms) default to 3 mins
 
     // -- Language Preferences --
-    val preferenceLanguage: String = "en",      // Preferred audio language (e.g. "es", "en", "fr")
-    val preferenceSubtitle: String = "es",      // Preferred subtitle language
+    val preferenceLanguage: String = "en",      // Preferred audio language -> es, es-es, es-mx, en, fr, pt, de, it, ja, ko, zh
+    val preferenceSubtitle: String? = "es",      // Preferred subtitle language -> es, es-es, es-mx, en, fr, pt, de, it, ja, ko, zh
 
     // -- Aspect Ratio Preference --
     val preferenceVideoSize: VideoSizePreference = VideoSizePreference.AUTOFIT,

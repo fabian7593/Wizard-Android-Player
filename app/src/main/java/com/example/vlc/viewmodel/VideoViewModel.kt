@@ -115,7 +115,7 @@ class VideoViewModel : ViewModel() {
                     }
                 } catch (e: Exception) {
                     AppLogger.error("VideoViewModel", "❌ Error getting playback time: ${e.message}")
-                    cancel() // Cancela coroutine si VLC explota
+                    cancel()
                 }
             }
         }

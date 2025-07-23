@@ -11,9 +11,11 @@ import com.example.vlc.player.config.Config.applyAspectRatio
 import com.example.vlc.utils.AppLogger
 import com.example.vlc.utils.GeneralUtils.shouldForceHWDecoding
 import com.example.vlc.utils.LanguageMatcher
+import com.example.vlc.utils.LanguageMatcher.isSubtitleAllowed
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import java.util.concurrent.ExecutorService
+import androidx.core.net.toUri
 
 @Composable
 fun WizardPlayerView(
@@ -94,7 +96,7 @@ fun WizardPlayerView(
                 vout.setWindowSize(width, height)
                 vout.attachViews(null)
 
-                val media = Media(mediaPlayer.libVLC, Uri.parse(videoUrl))
+                val media = Media(mediaPlayer.libVLC, videoUrl.toUri())
                 val forceHW = shouldForceHWDecoding()
                 media.setHWDecoderEnabled(forceHW, false)
                 mediaPlayer.media = media
@@ -118,6 +120,8 @@ fun WizardPlayerView(
                             MediaPlayer.Event.ESAdded -> {
 
                                     try {
+
+                                        // -- AUDIO TRACKS --
                                         val audioTracks = mediaPlayer.audioTracks?.map {
                                             it.id to (it.name ?: "Audio ${it.id}")
                                         } ?: emptyList()
@@ -134,28 +138,31 @@ fun WizardPlayerView(
                                             onAudioChanged?.invoke(it.second)
                                         }
 
-                                        val subtitleTracks = mediaPlayer.spuTracks?.map {
-                                            it.id to (it.name ?: "Sub ${it.id}")
-                                        } ?: emptyList()
+
+
+                                        // -- SUBTITLES TRACKS --
+                                        val subtitleTracks = mediaPlayer.spuTracks
+                                            ?.mapNotNull { track ->
+                                                val name = track.name ?: return@mapNotNull null
+                                                if (isSubtitleAllowed(name)) {
+                                                    track.id to name
+                                                } else null
+                                            } ?: emptyList()
                                         onSubtitleLoaded(subtitleTracks)
 
-                                        val preferredSub = subtitleTracks.find {
-                                            LanguageMatcher.matchesLanguage(
-                                                it.second,
-                                                config.preferenceSubtitle
-                                            )
-                                        }
-                                        preferredSub?.let {
-                                            mediaPlayer.setSpuTrack(it.first)
-                                            val code = LanguageMatcher.detectSubtitleCode(
-                                                it.second,
-                                                config.preferenceSubtitle
-                                            )
-                                            onSubtitleChanged?.invoke(code ?: "es")
+                                        config.preferenceSubtitle?.let { preferredCode ->
+                                            val preferredSub = subtitleTracks.find {
+                                                LanguageMatcher.matchesLanguage(it.second, preferredCode)
+                                            }
+                                            preferredSub?.let {
+                                                mediaPlayer.spuTrack = it.first
+                                                val code = LanguageMatcher.detectSubtitleCode(it.second)
+                                                onSubtitleChanged?.invoke(code ?: preferredCode)
+                                            }
                                         }
 
                                     } catch (e: Exception) {
-                                        AppLogger.warning("WizardPlayerView", "⚠️ Error loading media tracks:")
+                                        AppLogger.warning("WizardPlayerView", "⚠️ Error loading media tracks: ${e.message}")
                                     }
 
                             }

@@ -72,8 +72,7 @@ object LanguageMatcher {
     }
 
 
-
-    fun detectSubtitleCode(trackName: String, preference: String = ""): String? {
+    fun detectSubtitleCode(trackName: String): String? {
         val normalizedName = trackName.lowercase()
         val isAccessible = accessibleCodeSuffixes.any { normalizedName.contains(it) }
 
@@ -95,8 +94,10 @@ object LanguageMatcher {
         }
     }
 
+    fun isSubtitleAllowed(name: String): Boolean {
+        val normalized = name.lowercase()
+        val bannedKeywords = listOf("forced", "force", "shc", "sign", "only", "music", "lyrics", "sdh")
 
-
-
-
+        return bannedKeywords.none { normalized.contains(it) }
+    }
 }

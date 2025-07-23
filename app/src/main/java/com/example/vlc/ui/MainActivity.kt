@@ -1,6 +1,5 @@
 package com.example.vlc.ui
 
-
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -132,7 +131,7 @@ fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("POORCPU")
+                    Text("POOR CPU :(")
                     Switch(
                         checked = isPoorCpuMode,
                         onCheckedChange = { isPoorCpuMode = it }
@@ -178,8 +177,8 @@ fun MainScreen(onStartPlayer: (PlayerConfig) -> Unit) {
                             startEpisodeNumber = null,
 
                             // -- Language & Subtitle Preferences --
-                            preferenceLanguage = "en",
-                            preferenceSubtitle = "es",
+                            preferenceLanguage = "es",
+                            preferenceSubtitle = null,
 
                             // -- Video Display Settings --
                             preferenceVideoSize = VideoSizePreference.AUTOFIT,
